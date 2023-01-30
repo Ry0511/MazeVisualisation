@@ -40,7 +40,7 @@ namespace app {
     void Renderer::draw_elements(
             DrawMode mode,
             GLsizei count,
-            GLPrimitiveType type,
+            PrimitiveType type,
             const GLvoid* indices
     ) {
         GL(glDrawElements(
@@ -55,7 +55,7 @@ namespace app {
             DrawMode mode,
             GLsizei count,
             GLsizei instance_count,
-            GLPrimitiveType type,
+            PrimitiveType type,
             const GLvoid* indices
     ) {
         GL(glDrawElementsInstanced(
