@@ -5,7 +5,7 @@
 #include "Application.h"
 
 #include "Logging.h"
-#include "Renderer/VertexArrayObjectRedone.h"
+#include "Renderer/VertexArrayObject.h"
 #include "Renderer/GLUtil.h"
 #include "Renderer/Shader.h"
 
@@ -15,7 +15,7 @@ private:
     float m_Theta = 0.0F;
 
     app::Shader* m_ShaderProgram = nullptr;
-    app::IndexedVertexObjectRedo m_Ivo{};
+    app::IndexedVertexObject m_Ivo{};
 
 public:
     App() : app::Application("My App", 800, 600) {}
