@@ -16,7 +16,7 @@ private:
 
     app::Shader* m_ShaderProgram = nullptr;
     app::IndexedVertexObject m_Ivo{};
-    std::string m_ThetaUniform = "m_Theta";
+    std::string m_ThetaUniform = "u_Theta";
 
 public:
     App() : app::Application("My App", 800, 600) {}
