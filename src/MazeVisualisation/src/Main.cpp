@@ -81,13 +81,13 @@ public:
                 1.0, 0.0, 0.0,
                 0.0, 1.0, 0.0,
                 0.0, 0.0, 1.0,
-                1.0, 0.0, 0.0,
                 0.0, 1.0, 0.0,
+                1.0, 0.0, 0.0,
                 0.0, 0.0, 1.0,
                 1.0, 0.0, 0.0,
                 0.0, 1.0, 0.0,
-                0.0, 0.0, 1.0,
-                1.0, 0.0, 0.0,
+                1.0, 0.0, 1.0,
+                0.0, 1.0, 0.0,
         };
 
         app::FloatAttribPtr color_attrib{ 1, 3 };
@@ -99,7 +99,7 @@ public:
         );
         m_ShaderProgram->enable();
 
-        // Matrix
+        // Initial Projection & View Matrix
         m_ProjectionMatrix = glm::perspective(glm::radians(45.f), 4.f / 3.f, 0.1f, 1000.f);
         m_ViewMatrix       = glm::translate(glm::mat4{ 1 }, glm::vec3(0, 0, -5));
 
@@ -117,6 +117,7 @@ public:
         set_viewport(0, 0, size.x, size.y);
         clear();
 
+        // Rotate the Model to see all sides
         m_ModelMatrix = glm::rotate(glm::mat4{1}, m_Theta, glm::vec3(0.9, 0.5, 0.2));
 
         // Push Uniforms
