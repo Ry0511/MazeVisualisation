@@ -16,6 +16,7 @@ private:
 
     app::Shader* m_ShaderProgram = nullptr;
     app::IndexedVertexObject m_Ivo{};
+    std::string m_ThetaUniform = "m_Theta";
 
 public:
     App() : app::Application("My App", 800, 600) {}
@@ -51,9 +52,9 @@ public:
         m_Ivo.set_index_buffer(indices, 3);
 
         float               vertex_colours[]{
-                1.0, 0.0, 0.0,
-                0.0, 1.0, 0.0,
-                0.0, 0.0, 1.0
+                1.0, 1.0, 1.0,
+                0.5, 0.0, 0.5,
+                0.2, 1.0, 0.2
         };
         app::FloatAttribPtr color_attrib{ 1, 3 };
         m_Ivo.add_vertex_buffer(vertex_colours, 9, color_attrib);
@@ -63,18 +64,25 @@ public:
                 app::Shader::read_file_to_string("Res/Shaders/FragmentShader.glsl")
         );
         m_ShaderProgram->enable();
+
     }
 
     virtual bool on_update(float delta) override {
         m_Theta += delta;
-        set_title(std::format("Window # {:6f}", delta).c_str());
+        set_title(std::format("Window # {:6f}, {:4f}, {:4f}", delta, m_Theta, abs(sin(m_Theta * 2))).c_str());
         const glm::ivec2& size = get_window_size();
         set_viewport(0, 0, size.x, size.y);
         clear();
 
+        m_ShaderProgram->enable();
+        m_ShaderProgram->set_uniform(m_ThetaUniform, m_Theta);
+
         m_Ivo.bind();
         draw_elements(app::DrawMode::TRIANGLES, 3);
         m_Ivo.unbind();
+
+        m_ShaderProgram->disable();
+
         return true;
     }
 };
