@@ -16,9 +16,5 @@ uniform float u_Theta;
 
 void main() {
     colour = v_colour;
-
-    // vec4 temp = vec4(v_pos, 1.0, 1.0) * u_RotationMatrix;
-    // gl_Position = vec4(temp.x, temp.y, 1.0, 1.0);
-
     gl_Position = u_ProjectionMatrix * u_ViewMatrix * u_ModelMatrix * vec4(v_pos, 1.0);
 }

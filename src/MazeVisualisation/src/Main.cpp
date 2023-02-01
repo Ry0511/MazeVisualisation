@@ -118,7 +118,10 @@ public:
         clear();
 
         // Rotate the Model to see all sides
-        m_ModelMatrix = glm::rotate(glm::mat4{1}, m_Theta, glm::vec3(0.9, 0.5, 0.2));
+        float x_angle = sin(m_Theta);
+        float y_angle = sin(-(m_Theta * 1.35));
+        float z_angle = sin(m_Theta * 1.25);
+        m_ModelMatrix = glm::rotate(glm::mat4{1}, m_Theta, glm::vec3(x_angle, y_angle, z_angle));
 
         // Push Uniforms
         if (m_ShaderProgram == nullptr) throw std::exception();

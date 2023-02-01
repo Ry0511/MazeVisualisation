@@ -128,6 +128,8 @@ namespace app {
 
     public:
 
+        #define SET_UNIFORM(fn) ASSERT(is_enabled(), "Shader isn't enabled..."); GL(fn)
+
         GLint get_uniform_location(const std::string& name) {
             GLint location = GL(glGetUniformLocation(m_ShaderProgram, name.c_str()));
             return location;
@@ -138,19 +140,19 @@ namespace app {
         //############################################################################//
 
         void set_uniform(const std::string& name, float v) {
-            GL(glUniform1f(get_uniform_location(name.c_str()), v));
+            SET_UNIFORM(glUniform1f(get_uniform_location(name.c_str()), v));
         }
 
         void set_uniform(const std::string& name, const glm::vec2& v) {
-            GL(glUniform2f(get_uniform_location(name.c_str()), v.x, v.y));
+            SET_UNIFORM(glUniform2f(get_uniform_location(name.c_str()), v.x, v.y));
         }
 
         void set_uniform(const std::string& name, const glm::vec3& v) {
-            GL(glUniform3f(get_uniform_location(name.c_str()), v.x, v.y, v.z));
+            SET_UNIFORM(glUniform3f(get_uniform_location(name.c_str()), v.x, v.y, v.z));
         }
 
         void set_uniform(const std::string& name, const glm::vec4& v) {
-            GL(glUniform4f(get_uniform_location(name.c_str()), v.x, v.y, v.z, v.w));
+            SET_UNIFORM(glUniform4f(get_uniform_location(name.c_str()), v.x, v.y, v.z, v.w));
         }
 
         //############################################################################//
@@ -158,19 +160,19 @@ namespace app {
         //############################################################################//
 
         void set_uniform(const std::string& name, int v) {
-            GL(glUniform1i(get_uniform_location(name.c_str()), v));
+            SET_UNIFORM(glUniform1i(get_uniform_location(name.c_str()), v));
         }
 
         void set_uniform(const std::string& name, const glm::ivec2& v) {
-            GL(glUniform2i(get_uniform_location(name.c_str()), v.x, v.y));
+            SET_UNIFORM(glUniform2i(get_uniform_location(name.c_str()), v.x, v.y));
         }
 
         void set_uniform(const std::string& name, const glm::ivec3& v) {
-            GL(glUniform3i(get_uniform_location(name.c_str()), v.x, v.y, v.z));
+            SET_UNIFORM(glUniform3i(get_uniform_location(name.c_str()), v.x, v.y, v.z));
         }
 
         void set_uniform(const std::string& name, const glm::ivec4& v) {
-            GL(glUniform4i(get_uniform_location(name.c_str()), v.x, v.y, v.z, v.w));
+            SET_UNIFORM(glUniform4i(get_uniform_location(name.c_str()), v.x, v.y, v.z, v.w));
         }
 
         //############################################################################//
@@ -178,7 +180,7 @@ namespace app {
         //############################################################################//
 
         void set_uniform(const std::string& name, const glm::mat2& matrix, bool transpose = false) {
-            GL(glUniformMatrix2fv(
+            SET_UNIFORM(glUniformMatrix2fv(
                     get_uniform_location(name),
                     1,
                     transpose ? GL_TRUE : GL_FALSE,
@@ -187,7 +189,7 @@ namespace app {
         }
 
         void set_uniform(const std::string& name, const glm::mat3& matrix, bool transpose = false) {
-            GL(glUniformMatrix3fv(
+            SET_UNIFORM(glUniformMatrix3fv(
                     get_uniform_location(name),
                     1,
                     transpose ? GL_TRUE : GL_FALSE,
@@ -196,7 +198,7 @@ namespace app {
         }
 
         void set_uniform(const std::string& name, const glm::mat4& matrix, bool transpose = false) {
-            GL(glUniformMatrix4fv(
+            SET_UNIFORM(glUniformMatrix4fv(
                     get_uniform_location(name),
                     1,
                     transpose ? GL_TRUE : GL_FALSE,
