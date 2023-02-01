@@ -25,7 +25,6 @@ private:
 
     // Matrices
     glm::mat4 m_ProjectionMatrix = glm::mat4{ 1 };
-    glm::mat4 m_ViewMatrix       = glm::mat4{ 1 };
     glm::mat4 m_ModelMatrix      = glm::mat4{ 1 };
 
 public:
@@ -33,6 +32,11 @@ public:
 
     ~App() {
         delete m_ShaderProgram;
+    }
+
+    virtual void camera_update(app::Window& window, float delta) override {
+        Camera3D::camera_update(window, delta);
+        get_camera_state().cam_pos.y = 0.F;
     }
 
     virtual void on_create() override {
@@ -101,8 +105,6 @@ public:
 
         // Initial Projection & View Matrix
         m_ProjectionMatrix = glm::perspective(glm::radians(45.f), 4.f / 3.f, 0.1f, 1000.f);
-        m_ViewMatrix       = glm::translate(glm::mat4{ 1 }, glm::vec3(0, 0, -5));
-
     }
 
     virtual bool on_update(float delta) override {
@@ -121,18 +123,45 @@ public:
         float x_angle = sin(m_Theta);
         float y_angle = sin(-(m_Theta * 1.35));
         float z_angle = sin(m_Theta * 1.25);
-        m_ModelMatrix = glm::rotate(glm::mat4{1}, m_Theta, glm::vec3(x_angle, y_angle, z_angle));
+
+        m_ModelMatrix = glm::rotate(glm::mat4{1}, m_Theta, {0.2, 0.15, 0.8});
 
         // Push Uniforms
         if (m_ShaderProgram == nullptr) throw std::exception();
         m_ShaderProgram->enable();
         m_ShaderProgram->set_uniform(m_ThetaUniform, m_Theta);
         m_ShaderProgram->set_uniform(m_ProjectionMatrixUniform, m_ProjectionMatrix);
-        m_ShaderProgram->set_uniform(m_ViewMatrixUniform, m_ViewMatrix);
+        m_ShaderProgram->set_uniform(m_ViewMatrixUniform, get_camera_matrix());
         m_ShaderProgram->set_uniform(m_ModelMatrixUniform, m_ModelMatrix);
 
         m_Ivo.bind();
+
         draw_elements(app::DrawMode::TRIANGLES, 36);
+
+        int buffer[18] {
+           1, 0, 0,
+           0, 1, 0,
+           0, 0, 1,
+           1, 1, 0,
+           1, 0, 1,
+           0, 1, 1
+        };
+
+        for (int i = 0; i < 18; ++i) {
+            float x = buffer[i], y = buffer[++i], z = buffer[++i];
+            float dx = 0, dy = 0, dz = 0;
+
+            if (x < 0.9F) dx = 8;
+            if (y < 0.9F) dy = 8;
+            if (z < 0.9F) dz = 8;
+
+            m_ModelMatrix = glm::rotate(glm::mat4{1}, m_Theta, {x, y, z})
+                    * glm::translate(glm::mat4{1}, {dx, dy, dz})
+                    * glm::rotate(glm::mat4{ 1 }, m_Theta, { x, y, z });
+            m_ShaderProgram->set_uniform(m_ModelMatrixUniform, m_ModelMatrix);
+            draw_elements(app::DrawMode::TRIANGLES, 36);
+        }
+
         m_Ivo.unbind();
 
         m_ShaderProgram->disable();
