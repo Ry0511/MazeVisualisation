@@ -160,11 +160,11 @@ namespace app {
         //############################################################################//
 
     public:
-        inline const CameraState& get_state() const {
+        inline const CameraState& get_camera_state() const {
             return m_State;
         }
 
-        inline CameraState& get_state() {
+        inline CameraState& get_camera_state() {
             return m_State;
         }
 
