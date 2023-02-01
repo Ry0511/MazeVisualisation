@@ -137,7 +137,6 @@ public:
            1, 0, 0,
            0, 1, 0,
            0, 0, 1,
-
            1, 1, 0,
            1, 0, 1,
            0, 1, 1
@@ -154,12 +153,6 @@ public:
             m_ModelMatrix = glm::rotate(glm::mat4{1}, m_Theta, {x, y, z})
                     * glm::translate(glm::mat4{1}, {dx, dy, dz})
                     * glm::rotate(glm::mat4{ 1 }, m_Theta, { x, y, z });
-            m_ShaderProgram->set_uniform(m_ModelMatrixUniform, m_ModelMatrix);
-            draw_elements(app::DrawMode::TRIANGLES, 36);
-
-            m_ModelMatrix = glm::rotate(glm::mat4{1}, m_Theta, {x, y, z})
-                            * glm::translate(glm::mat4{1}, {-dx, -dy, -dz})
-                            * glm::rotate(glm::mat4{ 1 }, m_Theta, { x, y, z });
             m_ShaderProgram->set_uniform(m_ModelMatrixUniform, m_ModelMatrix);
             draw_elements(app::DrawMode::TRIANGLES, 36);
         }
