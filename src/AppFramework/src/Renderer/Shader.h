@@ -8,9 +8,10 @@
 #include "Logging.h"
 #include "Renderer/GLUtil.h"
 
-#include <gl/glew.h>
 #include <string>
 #include <fstream>
+#include <gl/glew.h>
+#include <glm/gtc/type_ptr.hpp>
 
 namespace app {
 
@@ -123,6 +124,86 @@ namespace app {
         void disable() {
             GL(glUseProgram(0));
             s_EnabledShaderProgram = 0;
+        }
+
+    public:
+
+        #define SET_UNIFORM(fn) ASSERT(is_enabled(), "Shader isn't enabled..."); GL(fn)
+
+        GLint get_uniform_location(const std::string& name) {
+            GLint location = GL(glGetUniformLocation(m_ShaderProgram, name.c_str()));
+            return location;
+        }
+
+        //############################################################################//
+        // | FLOAT UNIFORMS |
+        //############################################################################//
+
+        void set_uniform(const std::string& name, float v) {
+            SET_UNIFORM(glUniform1f(get_uniform_location(name.c_str()), v));
+        }
+
+        void set_uniform(const std::string& name, const glm::vec2& v) {
+            SET_UNIFORM(glUniform2f(get_uniform_location(name.c_str()), v.x, v.y));
+        }
+
+        void set_uniform(const std::string& name, const glm::vec3& v) {
+            SET_UNIFORM(glUniform3f(get_uniform_location(name.c_str()), v.x, v.y, v.z));
+        }
+
+        void set_uniform(const std::string& name, const glm::vec4& v) {
+            SET_UNIFORM(glUniform4f(get_uniform_location(name.c_str()), v.x, v.y, v.z, v.w));
+        }
+
+        //############################################################################//
+        // | INT UNIFORMS |
+        //############################################################################//
+
+        void set_uniform(const std::string& name, int v) {
+            SET_UNIFORM(glUniform1i(get_uniform_location(name.c_str()), v));
+        }
+
+        void set_uniform(const std::string& name, const glm::ivec2& v) {
+            SET_UNIFORM(glUniform2i(get_uniform_location(name.c_str()), v.x, v.y));
+        }
+
+        void set_uniform(const std::string& name, const glm::ivec3& v) {
+            SET_UNIFORM(glUniform3i(get_uniform_location(name.c_str()), v.x, v.y, v.z));
+        }
+
+        void set_uniform(const std::string& name, const glm::ivec4& v) {
+            SET_UNIFORM(glUniform4i(get_uniform_location(name.c_str()), v.x, v.y, v.z, v.w));
+        }
+
+        //############################################################################//
+        // | MATRIX |
+        //############################################################################//
+
+        void set_uniform(const std::string& name, const glm::mat2& matrix, bool transpose = false) {
+            SET_UNIFORM(glUniformMatrix2fv(
+                    get_uniform_location(name),
+                    1,
+                    transpose ? GL_TRUE : GL_FALSE,
+                    glm::value_ptr(matrix)
+            ));
+        }
+
+        void set_uniform(const std::string& name, const glm::mat3& matrix, bool transpose = false) {
+            SET_UNIFORM(glUniformMatrix3fv(
+                    get_uniform_location(name),
+                    1,
+                    transpose ? GL_TRUE : GL_FALSE,
+                    glm::value_ptr(matrix)
+            ));
+        }
+
+        void set_uniform(const std::string& name, const glm::mat4& matrix, bool transpose = false) {
+            SET_UNIFORM(glUniformMatrix4fv(
+                    get_uniform_location(name),
+                    1,
+                    transpose ? GL_TRUE : GL_FALSE,
+                    glm::value_ptr(matrix)
+            ));
         }
 
     };
