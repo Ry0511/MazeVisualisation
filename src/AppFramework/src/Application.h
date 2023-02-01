@@ -10,12 +10,14 @@
 
 #include "Window.h"
 
+#include "Renderer/Renderer.h"
+#include "Camera3D.h"
+
 #include <string>
-#include <Renderer/Renderer.h>
 
 namespace app {
 
-    class Application : public Window, public Renderer {
+    class Application : public Window, public Renderer, public Camera3D {
 
     private:
         bool m_IsRunning    = false;

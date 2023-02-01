@@ -25,7 +25,6 @@ private:
 
     // Matrices
     glm::mat4 m_ProjectionMatrix = glm::mat4{ 1 };
-    glm::mat4 m_ViewMatrix       = glm::mat4{ 1 };
     glm::mat4 m_ModelMatrix      = glm::mat4{ 1 };
 
 public:
@@ -101,8 +100,6 @@ public:
 
         // Initial Projection & View Matrix
         m_ProjectionMatrix = glm::perspective(glm::radians(45.f), 4.f / 3.f, 0.1f, 1000.f);
-        m_ViewMatrix       = glm::translate(glm::mat4{ 1 }, glm::vec3(0, 0, -5));
-
     }
 
     virtual bool on_update(float delta) override {
@@ -128,7 +125,7 @@ public:
         m_ShaderProgram->enable();
         m_ShaderProgram->set_uniform(m_ThetaUniform, m_Theta);
         m_ShaderProgram->set_uniform(m_ProjectionMatrixUniform, m_ProjectionMatrix);
-        m_ShaderProgram->set_uniform(m_ViewMatrixUniform, m_ViewMatrix);
+        m_ShaderProgram->set_uniform(m_ViewMatrixUniform, get_camera_matrix());
         m_ShaderProgram->set_uniform(m_ModelMatrixUniform, m_ModelMatrix);
 
         m_Ivo.bind();

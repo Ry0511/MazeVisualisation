@@ -11,7 +11,7 @@ set(AppFramework_HEADER_FILES
         src/Renderer/Renderer.h
         src/Renderer/GLUtil.h
         src/Renderer/Shader.h
-        src/Renderer/VertexArrayObject.h)
+        src/Renderer/VertexArrayObject.h src/Camera3D.h)
 
 set(AppFramework_SOURCE_FILES
         src/Window.cpp
