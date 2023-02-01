@@ -34,6 +34,11 @@ public:
         delete m_ShaderProgram;
     }
 
+    virtual void camera_update(app::Window& window, float delta) override {
+        Camera3D::camera_update(window, delta);
+        get_camera_state().cam_pos.y = 0.F;
+    }
+
     virtual void on_create() override {
         INFO("[ON_CREATE]");
         set_clear_colour({ 0.1, 0.1, 0.1, 1.0 });
