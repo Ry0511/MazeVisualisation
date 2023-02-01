@@ -7,8 +7,10 @@
 
 #include "Logging.h"
 #include <gl/glew.h>
+
 #include <string>
 #include <optional>
+#include <format>
 
 namespace app {
 
