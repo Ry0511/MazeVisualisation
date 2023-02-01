@@ -393,6 +393,13 @@ namespace app {
 
     public:
 
+        bool is_initialised() const {
+            if (!m_Vao.is_initialised() || !m_IndexArrBuffer.is_initialised()) return false;
+            for (const auto& [buffer, i] : m_VertexBufferVector)
+                if (!buffer.is_initialised()) return false;
+            return true;
+        }
+
         void init() {
             m_Vao.init();
             m_IndexArrBuffer.init();
