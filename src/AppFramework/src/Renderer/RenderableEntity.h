@@ -32,6 +32,14 @@ namespace app {
         }
 
     public:
+        virtual glm::mat4 get_model_matrix() const {
+            return glm::translate(glm::mat4{ 1 }, m_Transform.translate)
+                   * glm::rotate(glm::mat4{ 1 }, m_Transform.rotate.x, { 1, 0, 0 })
+                   * glm::rotate(glm::mat4{ 1 }, m_Transform.rotate.y, { 0, 1, 0 })
+                   * glm::rotate(glm::mat4{ 1 }, m_Transform.rotate.z, { 0, 0, 1 })
+                   * glm::scale(glm::mat4{ 1 }, m_Transform.scale);
+        };
+
         virtual void update(float ts) = 0;
         virtual void render_singular(app::Renderer& renderer, app::Shader& shader) = 0;
     };

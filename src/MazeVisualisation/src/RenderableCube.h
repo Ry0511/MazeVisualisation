@@ -15,6 +15,9 @@ namespace maze {
         inline static app::IndexedVertexObject* s_CubeVertexObject = nullptr;
         inline static size_t s_InstanceCount = 0;
 
+    private:
+        float m_Theta = 0.0F;
+
     public:
         RenderableCube() : app::RenderableEntity() {
             ++s_InstanceCount;
@@ -95,18 +98,14 @@ namespace maze {
 
     public:
         virtual void update(float ts) override {
-
+            m_Theta += ts;
+            m_Transform.rotate = {m_Theta, m_Theta, m_Theta};
         }
 
         virtual void render_singular(app::Renderer& renderer, app::Shader& shader) override {
             ASSERT(s_CubeVertexObject != nullptr, "Underlying Cube vertex buffer is null...");
             s_CubeVertexObject->bind();
-
-            glm::mat4 model = glm::translate(glm::mat4{1}, m_Transform.translate)
-                    * glm::scale(glm::mat4{1}, m_Transform.scale);
-
-            shader.set_uniform("u_ModelMatrix", model);
-
+            shader.set_uniform("u_ModelMatrix", get_model_matrix());
             renderer.draw_elements(app::DrawMode::TRIANGLES, 36);
             s_CubeVertexObject->unbind();
         }

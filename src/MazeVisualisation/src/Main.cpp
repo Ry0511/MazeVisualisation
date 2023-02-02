@@ -61,8 +61,8 @@ public:
         for (int i = 0; i < grid_size; ++i) {
             for (int j = 0; j < grid_size; ++j) {
                 maze::RenderableCube cube{};
-                cube.get_transform().translate = { i, 0, j};
-                cube.get_transform().scale = {0.25, 0.25, 0.25};
+                cube.get_transform().translate = { i, 0, j };
+                cube.get_transform().scale     = { 0.25, 0.25, 0.25 };
                 m_Cubes.emplace_back(std::move(cube));
             }
         }
@@ -71,7 +71,8 @@ public:
     virtual bool on_update(float delta) override {
         m_Theta += delta;
         set_title(std::format(
-                "Window # Delta: {:6f}, Theta: {:4f}, {:4f}",
+                "Window # {}fps, Delta: {:6f}, Theta: {:4f}, {:4f}",
+                (int) (1.0 / (delta)),
                 delta,
                 m_Theta,
                 abs(sin(m_Theta * 2))).c_str()
