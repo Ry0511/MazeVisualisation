@@ -185,6 +185,26 @@ namespace app {
                     static_cast<GLenum>(usage)
             ));
         }
+
+        template<
+                class V,
+                size_t VSize = sizeof(V)
+        >
+        void set_data(
+                const V* data,
+                size_t count,
+                BufferAllocUsage usage = BufferAllocUsage::STATIC_DRAW,
+                size_t alloc_size = 0
+        ) {
+            assert_is_initialised<true>();
+            assert_bound<true>();
+            GL(glBufferData(
+                    static_cast<GLenum>(BufferType),
+                    alloc_size == 0 ? VSize * count : alloc_size,
+                    data,
+                    static_cast<GLenum>(usage)
+            ));
+        }
     };
 
     using VertexArrBuffer = Buffer<GLfloat, BufferContainerType::ARRAY, PrimitiveType::FLOAT>;
@@ -198,6 +218,7 @@ namespace app {
     template<
             PrimitiveType GLType,
             class ActualType,
+            size_t AttribCount = 1,
             auto TypeSize = sizeof(ActualType)
     > requires (
             std::is_integral<ActualType>().value
@@ -206,15 +227,18 @@ namespace app {
     struct AttribPointer {
         GLuint    attrib_index;
         GLint     component_count;
+        GLint     divisor   = 0;
         GLboolean normalise = GL_FALSE;
         GLsizei   stride    = TypeSize * component_count;
         const GLvoid* ptr_offset = (const GLvoid*) 0;
 
-        explicit AttribPointer(
+        AttribPointer(
                 GLuint attrib_index,
-                GLint component_count
+                GLint component_count,
+                GLint div = 0
         ) : attrib_index(attrib_index),
-            component_count(component_count) {
+            component_count(component_count),
+            divisor(div) {
             ASSERT(
                     this->attrib_index >= 0 && this->attrib_index <= 16,
                     "Attribute Index/Slot Ranges from: [0..16]"
@@ -224,9 +248,6 @@ namespace app {
                     "Accepted Component Count is: [1, 2, 3, 4]"
             );
         }
-
-        AttribPointer(const AttribPointer&) = default;
-        AttribPointer(AttribPointer&&) = default;
 
         std::string to_string() const {
             return std::format(
@@ -239,7 +260,7 @@ namespace app {
             );
         }
 
-        void create() {
+        virtual void create() {
             HINFO("[ATTRIB_CREATE]", " # {}", to_string());
             GL(glVertexAttribPointer(
                     attrib_index,
@@ -251,12 +272,19 @@ namespace app {
             ));
         }
 
-        void enable() {
-            GL(glEnableVertexAttribArray(attrib_index));
+        virtual void create_and_enable() {
+            create();
+            enable();
         }
 
-        void disable() {
+        virtual void enable() {
             GL(glEnableVertexAttribArray(attrib_index));
+            GL(glVertexAttribDivisor(attrib_index, divisor));
+        }
+
+        virtual void disable() {
+            GL(glEnableVertexAttribArray(attrib_index));
+            GL(glVertexAttribDivisor(attrib_index, 0));
         }
 
     };
@@ -359,6 +387,7 @@ namespace app {
             GL(glBindVertexArray(0));
             s_CurrentlyBound = 0;
         }
+
     };
 
     //############################################################################//
@@ -400,12 +429,21 @@ namespace app {
             return true;
         }
 
+        bool is_bound() const {
+            return m_Vao.is_bound();
+        }
+
         void init() {
             m_Vao.init();
             m_IndexArrBuffer.init();
         }
 
-        void bind() {
+        void bind_minimal() {
+            m_Vao.bind();
+            m_IndexArrBuffer.bind();
+        }
+
+        void bind_all() {
             m_Vao.bind();
 
             for (auto& [buffer, attrib] : m_VertexBufferVector) {
@@ -425,32 +463,102 @@ namespace app {
             m_Vao.unbind();
         }
 
+        void bind_vertex_buffer(const GLuint index) {
+            auto& [buffer, attrib] = get_vertex_buffer(index);
+            buffer.bind();
+            attrib.enable();
+        }
+
+        bool contains_buffer(GLuint attrib_index) {
+            for (const auto& [buffer, index] : m_VertexBufferVector) {
+                if (attrib_index == index.attrib_index) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        void swap_vertex_buffer(VertexArrBuffer& buffer, FloatAttribPtr& attrib) {
+            for (auto& [v_buffer, v_attrib] : m_VertexBufferVector) {
+                if (v_attrib.attrib_index == attrib.attrib_index) {
+                    v_attrib.disable();
+                    v_buffer = std::move(buffer);
+                    v_attrib = std::move(attrib);
+                    return;
+                }
+            }
+        }
+
+        template<class V = float>
         void add_vertex_buffer(
-                float* data,
+                const V* data,
                 size_t count,
-                FloatAttribPtr attribute,
-                BufferAllocUsage usage = BufferAllocUsage::STATIC_DRAW
+                FloatAttribPtr attrib,
+                BufferAllocUsage usage = BufferAllocUsage::STATIC_DRAW,
+                size_t alloc_size = 0
         ) {
             ASSERT(m_Vao.is_bound(), "VAO Should be bound when adding Vertex Buffer/s");
+
             VertexArrBuffer v_buffer{};
             v_buffer.init();
             v_buffer.bind();
-            v_buffer.set_data(data, count, usage);
-            attribute.create();
-            attribute.enable();
-            m_VertexBufferVector.emplace_back(
-                    std::move(v_buffer), std::move(attribute)
-            );
+            v_buffer.set_data<V>(data, count, usage, alloc_size);
+            attrib.create();
+            attrib.enable();
+
+            if (contains_buffer(attrib.attrib_index)) {
+                HINFO("[VAO_SWAP]", " # Swapping Buffer at Attribute Index {}",
+                      attrib.attrib_index);
+                swap_vertex_buffer(v_buffer, attrib);
+            } else {
+                m_VertexBufferVector.emplace_back(
+                        std::move(v_buffer), std::move(attrib)
+                );
+            }
+        }
+
+        template<class V = float>
+        void update_vertex_buffer(
+                GLuint attrib_index,
+                const V* data,
+                size_t count,
+                BufferAllocUsage usage = BufferAllocUsage::DYNAMIC_DRAW,
+                size_t alloc_size = 0
+        ) {
+            for (auto& [buffer, attrib] : m_VertexBufferVector) {
+                if (attrib.attrib_index == attrib_index) {
+                    buffer.bind();
+                    buffer.set_data<V>(data, count, usage, alloc_size);
+                    return;
+                }
+            }
+
+            ERR("Buffer with attribute index '{}' doesn't exist...", attrib_index);
+            throw std::exception();
         }
 
         void set_index_buffer(
-                unsigned int* data,
+                const unsigned int* data,
                 size_t count,
                 BufferAllocUsage usage = BufferAllocUsage::STATIC_DRAW
         ) {
             ASSERT(m_Vao.is_bound(), "VAO Should be bound when setting index buffer data.");
             m_IndexArrBuffer.bind();
             m_IndexArrBuffer.set_data(data, count, usage);
+        }
+
+        void update_index_buffer(
+                const unsigned int* data,
+                size_t count,
+                BufferAllocUsage usage = BufferAllocUsage::DYNAMIC_DRAW
+        ) {
+            ASSERT(m_Vao.is_bound(), "VAO Should be bound when setting index buffer data.");
+            m_IndexArrBuffer.bind();
+            m_IndexArrBuffer.set_data(data, count, usage);
+        }
+
+        std::pair<VertexArrBuffer, FloatAttribPtr>& get_vertex_buffer(size_t index) {
+            return m_VertexBufferVector[index];
         }
     };
 

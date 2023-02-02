@@ -13,7 +13,8 @@ set(AppFramework_HEADER_FILES
         src/Renderer/Shader.h
         src/Renderer/VertexArrayObject.h
         src/Camera3D.h
-        src/Renderer/RenderableEntity.h)
+        src/Renderer/RenderableEntity.h
+        src/Renderer/BatchRenderer.h)
 
 set(AppFramework_SOURCE_FILES
         src/Window.cpp

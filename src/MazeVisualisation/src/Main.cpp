@@ -9,6 +9,7 @@
 #include "Logging.h"
 #include "Renderer/GLUtil.h"
 #include "Renderer/Shader.h"
+#include "Renderer/BatchRenderer.h"
 
 class App : public app::Application {
 
@@ -23,6 +24,7 @@ private:
     std::string                       m_ViewMatrixUniform       = "u_ViewMatrix";
     std::string                       m_ModelMatrixUniform      = "u_ModelMatrix";
     std::vector<maze::RenderableCube> m_Cubes{};
+    app::BatchRenderer                m_BatchRenderer{};
 
     // Matrices
     glm::mat4 m_ProjectionMatrix = glm::mat4{ 1 };
@@ -46,9 +48,8 @@ public:
         GL(glPolygonMode(GL_FRONT_AND_BACK, GL_FILL));
         GL(glLineWidth(4));
 
-
         m_ShaderProgram = new app::Shader(
-                app::Shader::read_file_to_string("Res/Shaders/VertexShader.glsl"),
+                app::Shader::read_file_to_string("Res/Shaders/VertexShaderInstanced.glsl"),
                 app::Shader::read_file_to_string("Res/Shaders/FragmentShader.glsl")
         );
         m_ShaderProgram->enable();
@@ -56,7 +57,7 @@ public:
         // Initial Projection & View Matrix
         m_ProjectionMatrix = glm::perspective(glm::radians(45.f), 4.f / 3.f, 0.1f, 1000.f);
 
-        int grid_size = 128;
+        int grid_size = 32;
 
         for (int i = 0; i < grid_size; ++i) {
             for (int j = 0; j < grid_size; ++j) {
@@ -66,6 +67,24 @@ public:
                 m_Cubes.emplace_back(std::move(cube));
             }
         }
+
+        m_BatchRenderer.init();
+        m_BatchRenderer.bind_all();
+        m_BatchRenderer.set_indices(maze::cube_obj::s_Indices.data(), 36);
+        m_BatchRenderer.set_vertex_buffer(maze::cube_obj::s_VertexPositions.data(), 24);
+        m_BatchRenderer.set_extra_buffer(maze::cube_obj::s_Colours.data(), 36, 5, 3);
+
+        std::vector<glm::mat4> translates{};
+        translates.reserve(128*128);
+        for (auto& cube : m_Cubes) {
+            cube.update(0.008F);
+//            cube.render_singular(*this, *m_ShaderProgram);
+            translates.emplace_back(cube.get_model_matrix());
+        }
+        m_BatchRenderer.set_model_matrix(translates.data(), translates.size());
+
+        m_BatchRenderer.unbind();
+
     }
 
     virtual bool on_update(float delta) override {
@@ -88,10 +107,17 @@ public:
         m_ShaderProgram->set_uniform(m_ProjectionMatrixUniform, m_ProjectionMatrix);
         m_ShaderProgram->set_uniform(m_ViewMatrixUniform, get_camera_matrix());
 
+        std::vector<glm::mat4> translates{};
+        translates.reserve(128*128);
         for (auto& cube : m_Cubes) {
             cube.update(delta);
-            cube.render_singular(*this, *m_ShaderProgram);
+//            cube.render_singular(*this, *m_ShaderProgram);
+            translates.emplace_back(cube.get_model_matrix());
         }
+
+        m_BatchRenderer.bind_all();
+        draw_elements_instanced(app::DrawMode::TRIANGLES, 36, translates.size());
+        m_BatchRenderer.unbind();
 
         m_ShaderProgram->disable();
 
