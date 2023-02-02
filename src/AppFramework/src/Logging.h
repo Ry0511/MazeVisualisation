@@ -15,7 +15,7 @@
 #define PANIC throw -1
 #endif
 
-#ifdef Debug
+#ifdef Logging
 
 #include <format>
 #include <cstdarg>

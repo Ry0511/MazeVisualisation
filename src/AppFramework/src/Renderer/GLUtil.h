@@ -67,7 +67,7 @@ namespace app {
     // | MACROS |
     //############################################################################//
 
-    #ifdef Debug
+    #ifdef Logging
 
     #define GL(x) x; app::check_gl_error(#x, __FILE__, __LINE__, __FUNCTION__)
 

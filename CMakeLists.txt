@@ -8,9 +8,8 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin/lib)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
-# Why isn't this pre-defined anymore?
-if (${CMAKE_BUILD_TYPE} MATCHES Debug)
-    add_definitions(-DDebug=1)
+if (${BUILD_MODE} MATCHES Debug)
+    add_definitions(-DLogging=1)
 endif ()
 
 # CTest
