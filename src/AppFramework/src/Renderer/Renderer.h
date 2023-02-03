@@ -9,7 +9,6 @@
 #define MAZEVISUALISATION_RENDERER_H
 
 #include "Logging.h"
-#include "Renderer/VertexArrayObject.h"
 #include <glm/glm.hpp>
 #include <array>
 
