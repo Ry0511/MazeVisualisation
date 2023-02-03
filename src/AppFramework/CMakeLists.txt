@@ -14,7 +14,7 @@ set(AppFramework_HEADER_FILES
         src/Renderer/VertexArrayObject.h
         src/Camera3D.h
         src/Renderer/RenderableEntity.h
-        src/Renderer/BatchRenderer.h)
+        src/Renderer/BatchRenderer.h src/Renderer/VertexObjectBinding.h)
 
 set(AppFramework_SOURCE_FILES
         src/Window.cpp

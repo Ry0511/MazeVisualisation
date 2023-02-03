@@ -41,7 +41,6 @@ namespace app {
         };
 
         virtual void update(float ts) = 0;
-        virtual void render_singular(app::Renderer& renderer, app::Shader& shader) = 0;
     };
 }
 

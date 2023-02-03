@@ -9,7 +9,7 @@
 #include "Logging.h"
 #include "Renderer/GLUtil.h"
 #include "Renderer/Shader.h"
-#include "Renderer/BatchRenderer.h"
+#include "Renderer/VertexObjectBinding.h"
 
 class App : public app::Application {
 
@@ -24,7 +24,8 @@ private:
     std::string                       m_ViewMatrixUniform       = "u_ViewMatrix";
     std::string                       m_ModelMatrixUniform      = "u_ModelMatrix";
     std::vector<maze::RenderableCube> m_Cubes{};
-    app::BatchRenderer                m_BatchRenderer{};
+    app::redone::Vao                  m_Vao{};
+    size_t                            m_GridSize                = 256;
 
     // Matrices
     glm::mat4 m_ProjectionMatrix = glm::mat4{ 1 };
@@ -38,7 +39,7 @@ public:
 
     virtual void camera_update(app::Window& window, float delta) override {
         Camera3D::camera_update(window, delta);
-        get_camera_state().cam_pos.y = 0.F;
+        get_camera_state().cam_pos.y = 3.F;
     }
 
     virtual void on_create() override {
@@ -57,33 +58,60 @@ public:
         // Initial Projection & View Matrix
         m_ProjectionMatrix = glm::perspective(glm::radians(45.f), 4.f / 3.f, 0.1f, 1000.f);
 
-        int grid_size = 32;
+        int grid_size = m_GridSize;
 
         for (int i = 0; i < grid_size; ++i) {
             for (int j = 0; j < grid_size; ++j) {
                 maze::RenderableCube cube{};
                 cube.get_transform().translate = { i, 0, j };
                 cube.get_transform().scale     = { 0.25, 0.25, 0.25 };
-                m_Cubes.emplace_back(std::move(cube));
+                m_Cubes.emplace_back(cube);
             }
         }
 
-        m_BatchRenderer.init();
-        m_BatchRenderer.bind_all();
-        m_BatchRenderer.set_indices(maze::cube_obj::s_Indices.data(), 36);
-        m_BatchRenderer.set_vertex_buffer(maze::cube_obj::s_VertexPositions.data(), 24);
-        m_BatchRenderer.set_extra_buffer(maze::cube_obj::s_Colours.data(), 36, 5, 3);
+        m_Vao.init();
+        m_Vao.bind();
 
+        // Vertex Buffer
+        app::redone::SimpleBuffer vertex_buffer = app::redone::array_buffer();
+        vertex_buffer.init();
+        vertex_buffer.bind();
+        vertex_buffer.set_data_static<float>(maze::cube_obj::s_VertexPositions.data(), 24);
+        m_Vao.add_buffer(vertex_buffer);
+        auto vertex_attrib = std::make_unique<app::redone::Vec3Attribute>(0);
+        vertex_attrib->create_and_enable();
+        m_Vao.add_attribute(std::move(vertex_attrib));
+
+        // Index Buffer
+        m_Vao.set_index_buffer(maze::cube_obj::s_Indices.data(), 36);
+
+        // Colour Buffer
+        app::redone::SimpleBuffer colour_buffer = app::redone::array_buffer();
+        colour_buffer.init();
+        colour_buffer.bind();
+        colour_buffer.set_data_static<float>(maze::cube_obj::s_Colours.data(), 24);
+        m_Vao.add_buffer(colour_buffer);
+        auto colour_attrib = std::make_unique<app::redone::Vec3Attribute>(1);
+        colour_attrib->create_and_enable();
+        m_Vao.add_attribute(std::move(colour_attrib));
+
+        // Matrix Buffer
         std::vector<glm::mat4> translates{};
-        translates.reserve(128*128);
         for (auto& cube : m_Cubes) {
-            cube.update(0.008F);
-//            cube.render_singular(*this, *m_ShaderProgram);
+            cube.update(0.008);
             translates.emplace_back(cube.get_model_matrix());
         }
-        m_BatchRenderer.set_model_matrix(translates.data(), translates.size());
 
-        m_BatchRenderer.unbind();
+        app::redone::SimpleBuffer matrix_buffer = app::redone::array_buffer();
+        matrix_buffer.init();
+        matrix_buffer.bind();
+        matrix_buffer.set_data_dynamic<glm::mat4>(translates.data(), translates.size());
+        auto matrix_attrib = std::make_unique<app::redone::FloatMat4Attrib>(2);
+        matrix_attrib->create_and_enable();
+        m_Vao.add_buffer(matrix_buffer);
+        m_Vao.add_attribute(std::move(matrix_attrib));
+
+        m_Vao.unbind();
 
     }
 
@@ -107,17 +135,18 @@ public:
         m_ShaderProgram->set_uniform(m_ProjectionMatrixUniform, m_ProjectionMatrix);
         m_ShaderProgram->set_uniform(m_ViewMatrixUniform, get_camera_matrix());
 
+        m_Vao.bind_all();
+
         std::vector<glm::mat4> translates{};
-        translates.reserve(128*128);
         for (auto& cube : m_Cubes) {
             cube.update(delta);
-//            cube.render_singular(*this, *m_ShaderProgram);
             translates.emplace_back(cube.get_model_matrix());
         }
+        m_Vao.get_buffer(2).set_data_dynamic<glm::mat4>(translates.data(), translates.size());
 
-        m_BatchRenderer.bind_all();
+
         draw_elements_instanced(app::DrawMode::TRIANGLES, 36, translates.size());
-        m_BatchRenderer.unbind();
+        m_Vao.unbind();
 
         m_ShaderProgram->disable();
 
