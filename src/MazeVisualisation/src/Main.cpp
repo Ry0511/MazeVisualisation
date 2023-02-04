@@ -24,8 +24,8 @@ private:
     std::string                       m_ViewMatrixUniform       = "u_ViewMatrix";
     std::string                       m_ModelMatrixUniform      = "u_ModelMatrix";
     std::vector<maze::RenderableCube> m_Cubes{};
-    app::redone::Vao                  m_Vao{};
-    size_t                            m_GridSize                = 256;
+    app::Vao                          m_Vao{};
+    size_t                            m_GridSize                = 32;
 
     // Matrices
     glm::mat4 m_ProjectionMatrix = glm::mat4{ 1 };
@@ -56,7 +56,7 @@ public:
         m_ShaderProgram->enable();
 
         // Initial Projection & View Matrix
-        m_ProjectionMatrix = glm::perspective(glm::radians(45.f), 4.f / 3.f, 0.1f, 1000.f);
+        m_ProjectionMatrix = glm::perspective(glm::radians(45.f), 4.f / 3.f, 0.1f, 100.f);
 
         int grid_size = m_GridSize;
 
@@ -73,27 +73,21 @@ public:
         m_Vao.bind();
 
         // Vertex Buffer
-        app::redone::SimpleBuffer vertex_buffer = app::redone::array_buffer();
+        app::SimpleBuffer vertex_buffer = app::array_buffer();
         vertex_buffer.init();
         vertex_buffer.bind();
         vertex_buffer.set_data_static<float>(maze::cube_obj::s_VertexPositions.data(), 24);
-        m_Vao.add_buffer(vertex_buffer);
-        auto vertex_attrib = std::make_unique<app::redone::Vec3Attribute>(0);
-        vertex_attrib->create_and_enable();
-        m_Vao.add_attribute(std::move(vertex_attrib));
+        m_Vao.add_buffer<app::Vec3Attribute>(vertex_buffer, 0U);
 
         // Index Buffer
         m_Vao.set_index_buffer(maze::cube_obj::s_Indices.data(), 36);
 
         // Colour Buffer
-        app::redone::SimpleBuffer colour_buffer = app::redone::array_buffer();
+        app::SimpleBuffer colour_buffer = app::array_buffer();
         colour_buffer.init();
         colour_buffer.bind();
         colour_buffer.set_data_static<float>(maze::cube_obj::s_Colours.data(), 24);
-        m_Vao.add_buffer(colour_buffer);
-        auto colour_attrib = std::make_unique<app::redone::Vec3Attribute>(1);
-        colour_attrib->create_and_enable();
-        m_Vao.add_attribute(std::move(colour_attrib));
+        m_Vao.add_buffer<app::Vec3Attribute>(colour_buffer, 1U);
 
         // Matrix Buffer
         std::vector<glm::mat4> translates{};
@@ -102,14 +96,11 @@ public:
             translates.emplace_back(cube.get_model_matrix());
         }
 
-        app::redone::SimpleBuffer matrix_buffer = app::redone::array_buffer();
+        app::SimpleBuffer matrix_buffer = app::array_buffer();
         matrix_buffer.init();
         matrix_buffer.bind();
         matrix_buffer.set_data_dynamic<glm::mat4>(translates.data(), translates.size());
-        auto matrix_attrib = std::make_unique<app::redone::FloatMat4Attrib>(2);
-        matrix_attrib->create_and_enable();
-        m_Vao.add_buffer(matrix_buffer);
-        m_Vao.add_attribute(std::move(matrix_attrib));
+        m_Vao.add_buffer<app::FloatMat4Attrib>(matrix_buffer, 2U);
 
         m_Vao.unbind();
 
@@ -142,8 +133,7 @@ public:
             cube.update(delta);
             translates.emplace_back(cube.get_model_matrix());
         }
-        m_Vao.get_buffer(2).set_data_dynamic<glm::mat4>(translates.data(), translates.size());
-
+        m_Vao.get_buffer(2).first.set_data_dynamic<glm::mat4>(translates.data(), translates.size());
 
         draw_elements_instanced(app::DrawMode::TRIANGLES, 36, translates.size());
         m_Vao.unbind();

@@ -10,9 +10,10 @@
 #include <vector>
 #include <array>
 #include <type_traits>
+#include <glm/glm.hpp>
 #include <gl/glew.h>
 
-namespace app::redone {
+namespace app {
 
     //############################################################################//
     // | ENUMERATION WRAPPING |
@@ -156,6 +157,12 @@ namespace app::redone {
         }
 
     public:
+        std::string to_string() const {
+            return std::format(
+                    "{}", m_BufferState->to_string()
+            );
+        }
+
         virtual bool is_init() override {
             return m_BufferState->handle != 0;
         }
@@ -225,6 +232,10 @@ namespace app::redone {
         }
     };
 
+    //
+    // Static Generator Functions.
+    //
+
     static SimpleBuffer array_buffer() {
         return SimpleBuffer{ BufferContainerType::ARRAY };
     }
@@ -247,7 +258,6 @@ namespace app::redone {
 
     struct AbstractAttributePointer {
 
-    protected:
         GLint index;
 
     public:
@@ -412,16 +422,36 @@ namespace app::redone {
     using ByteMat4Attrib = MatrixAttributePointer<4, 4, GLbyte, PrimitiveType::BYTE>;
 
     //############################################################################//
+    // | BUFFER & ATTRIBUTE TOGGLES |
+    //############################################################################//
+
+    struct Enabler {
+        GLuint* indices;
+        size_t count;
+
+        Enabler(GLuint* indices, size_t count) : indices(indices), count(count) {}
+
+        GLuint* begin() {
+            return &indices[0];
+        }
+
+        GLuint* end() {
+            return &indices[count - 1];
+        }
+    };
+
+    //############################################################################//
     // | VERTEX ARRAY OBJECT / VAO |
     //############################################################################//
 
-    using AttributeVector = std::vector<std::unique_ptr<AbstractAttributePointer>>;
+    using AttribPtr = std::unique_ptr<AbstractAttributePointer>;
+    using AttributedBuffer = std::pair<SimpleBuffer, AttribPtr>;
+    using BufferVector = std::vector<AttributedBuffer>;
 
     struct VaoState {
-        GLuint                    handle = 0;
-        SimpleBuffer              index_buffer{ BufferContainerType::ELEMENT_ARRAY };
-        std::vector<SimpleBuffer> buffers{};
-        AttributeVector           attributes{};
+        GLuint       handle = 0;
+        SimpleBuffer index_buffer{ BufferContainerType::ELEMENT_ARRAY };
+        BufferVector buffers{};
     };
 
     using VaoStateHandle = std::shared_ptr<VaoState>;
@@ -435,19 +465,46 @@ namespace app::redone {
         VaoStateHandle m_State = std::make_shared<VaoState>();
 
     public:
+
+        //############################################################################//
+        // | ASSERTIONS |
+        //############################################################################//
+
+        template<auto Expected>
+        void assert_bound() {
+            if constexpr (Expected) {
+                ASSERT(is_bound(), "VAO needs to be bound first...");
+            } else {
+                ASSERT(!is_bound(), "VAO needs to be unbound...");
+            }
+        }
+
+        template<auto Expected>
+        void assert_init() {
+            if constexpr (Expected) {
+                ASSERT(is_init(), "VAO needs to be initialised...");
+            } else {
+                ASSERT(!is_init(), "VAO already initialised...");
+            }
+        }
+
+        //############################################################################//
+        // | BINDING |
+        //############################################################################//
+
         virtual bool is_init() override {
             return m_State->handle != 0;
         }
 
         virtual void init() override {
-            ASSERT(!is_init(), "VAO already initialised...");
+            assert_init<false>();
             GL(glGenVertexArrays(1, &m_State->handle));
             m_State->index_buffer.init();
             HINFO("[VAO_INIT]", " # VAO: {:#08x}", m_State->handle);
         }
 
         virtual void bind() override {
-            ASSERT(is_init(), "VAO not initialised...");
+            assert_init<true>();
             GL(glBindVertexArray(m_State->handle));
             s_CurrentlyBound = m_State->handle;
             m_State->index_buffer.bind();
@@ -456,9 +513,18 @@ namespace app::redone {
         virtual void bind_all() {
             bind();
 
-            for (size_t i = 0; i < m_State->buffers.size(); ++i) {
-                m_State->buffers[i].bind();
-                m_State->attributes[i]->enable();
+            for (auto& [buffer, attrib] : m_State->buffers) {
+                buffer.bind();
+                attrib->enable();
+            }
+        }
+
+        void bind(Enabler& targets) {
+            for (GLuint i : targets) {
+                for (auto& [buffer, attrib] : m_State->buffers) {
+                    buffer.bind();
+                    attrib->enable();
+                }
             }
         }
 
@@ -467,40 +533,78 @@ namespace app::redone {
         }
 
         virtual void unbind() override {
-            ASSERT(is_init(), "VAO not initialised...");
-            for (size_t i = 0; i < m_State->buffers.size(); ++i) {
-                m_State->attributes[i]->disable();
-                m_State->buffers[i].unbind();
+            assert_init<true>();
+            for (auto& [buffer, attrib] : m_State->buffers) {
+                buffer.unbind();
+                attrib->disable();
             }
             GL(glBindVertexArray(0));
             s_CurrentlyBound = 0;
         }
 
         //############################################################################//
-        // | UPDATE VAO STATE |
+        // | UPDATE INDEX BUFFER |
         //############################################################################//
 
-        void set_index_buffer(const void* data, size_t count) {
-            m_State->index_buffer.set_data_dynamic<unsigned int>(data, count);
+        template<BufferAllocUsage Usage = BufferAllocUsage::DYNAMIC_DRAW>
+        void set_index_buffer(const unsigned int* data, size_t count) {
+            if constexpr (Usage == BufferAllocUsage::STATIC_DRAW) {
+                m_State->index_buffer.set_data_static<unsigned int>(data, count);
+
+            } else if constexpr (Usage == BufferAllocUsage::DYNAMIC_DRAW) {
+                m_State->index_buffer.set_data_dynamic<unsigned int>(data, count);
+
+            } else if constexpr (Usage == BufferAllocUsage::STREAM_DRAW) {
+                m_State->index_buffer.set_data_stream<unsigned int>(data, count);
+
+            } else {
+                static_assert(always_false<decltype(Usage)>, "Unknown Usage Type...");
+            }
         }
 
-        void add_buffer(SimpleBuffer buffer) {
-            m_State->buffers.emplace_back(buffer);
+        //############################################################################//
+        // | UPDATING VERTEX BUFFERS |
+        //############################################################################//
+
+        template<class T, class... Args>
+        void add_buffer(SimpleBuffer buffer, Args&& ... args) {
+            static_assert(
+                    std::is_base_of<AbstractAttributePointer, T>(),
+                    "Template must inherit from AbstractAttributePointer..."
+            );
+            assert_init<true>();
+            assert_bound<true>();
+            HINFO("[VAO_ADD_BUFFER]", " # Adding Buffer: {}", buffer.to_string());
+
+            std::unique_ptr<AbstractAttributePointer> new_attrib = std::make_unique<T>(
+                    T{ std::forward<Args>(args)... }
+            );
+            new_attrib->create();
+
+            m_State->buffers.emplace_back(buffer, std::move(new_attrib));
         }
 
-        SimpleBuffer& get_buffer(size_t index) {
-            ASSERT(index >= 0 && m_State->buffers.size() > index, "Index out of bounds.");
-            return m_State->buffers[index];
+        AttributedBuffer& get_buffer(size_t slot) {
+
+            for (auto& entry : m_State->buffers) {
+                if (entry.second->index == slot) {
+                    return entry;
+                }
+            }
+
+            HERR("[IVO_GET]", " # Buffer with Slot/Index of value {} doesn't exist...", slot);
+            throw std::exception();
         }
 
-        void add_attribute(std::unique_ptr<AbstractAttributePointer>&& attribute) {
-            m_State->attributes.emplace_back(std::move(attribute));
+        template<class T, BufferAllocUsage Usage = BufferAllocUsage::STATIC_DRAW>
+        void set_buffer_data(const T* data, size_t count, GLuint slot) {
+            auto& [buffer, attrib] = get_buffer(slot);
+            if (!buffer.is_init()) buffer.init();
+            buffer.bind();
+            buffer.set_data<T, Usage>(data, count);
+            buffer.unbind();
         }
 
-        AbstractAttributePointer& get_attribute(size_t index) {
-            ASSERT(index >= 0 && m_State->buffers.size() > index, "Index out of bounds.");
-            return *m_State->attributes[index];
-        }
     };
 
 }
