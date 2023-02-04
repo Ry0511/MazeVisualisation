@@ -202,7 +202,7 @@ namespace app {
             ASSERT(is_bound(), "Buffer isn't bound...");
 
             HINFO(
-                    "[SET_DATA]", " # {:#08x}, {}, {:p}, {:#08x}",
+                    "[SET_DATA]", " # {:#06x}, {}, {:p}, {:#06x}",
                     m_BufferState->get_buffer_type(),
                     TSize * count,
                     data,
@@ -229,6 +229,25 @@ namespace app {
         template<class T>
         void set_data_stream(const void* data, size_t count) {
             set_data<T, BufferAllocUsage::STREAM_DRAW>(data, count);
+        }
+
+        //############################################################################//
+        // | SET BUFFER RANGE |
+        //############################################################################//
+
+        template<class T, auto TSize = sizeof(T)>
+        void set_range(size_t offset_index, const GLvoid* data, size_t count) {
+            HINFO(
+                    "[BUF_SET_RANGE]", " # Set {:p} -> {:p}",
+                    (void*) (TSize * offset_index),
+                    (void*) (TSize * count)
+            );
+            ASSERT(is_bound(), "Can't set buffer data if the buffer is not bound...");
+            GL(glBufferSubData(
+                    m_BufferState->get_buffer_type(),
+                    TSize * offset_index,
+                    TSize * count, data
+            ));
         }
     };
 

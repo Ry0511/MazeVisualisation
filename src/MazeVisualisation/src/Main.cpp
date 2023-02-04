@@ -27,6 +27,10 @@ private:
     app::Vao                          m_Vao{};
     size_t                            m_GridSize                = 32;
 
+    size_t m_TickCount         = 0;
+    float  m_FrameTimeTotal    = 0.0f;
+    size_t m_MaxFrameTimeCount = 5000;
+
     // Matrices
     glm::mat4 m_ProjectionMatrix = glm::mat4{ 1 };
 
@@ -108,12 +112,20 @@ public:
 
     virtual bool on_update(float delta) override {
         m_Theta += delta;
-        set_title(std::format(
-                "Window # {}fps, Delta: {:6f}, Theta: {:4f}, {:4f}",
-                (int) (1.0 / (delta)),
-                delta,
-                m_Theta,
-                abs(sin(m_Theta * 2))).c_str()
+
+        ++m_TickCount;
+        m_FrameTimeTotal += delta;
+        float avg = m_FrameTimeTotal / m_TickCount;
+        if (m_TickCount >= m_MaxFrameTimeCount) m_TickCount = 0;
+
+        set_title(
+                std::format(
+                        "Window # {}fps, Delta: {:6f}, Theta: {:4f}, Avg: {:4f}",
+                        (int) (1.0 / (delta)),
+                        delta,
+                        m_Theta,
+                        avg
+                ).c_str()
         );
         const glm::ivec2& size = get_window_size();
         set_viewport(0, 0, size.x, size.y);
@@ -133,7 +145,7 @@ public:
             cube.update(delta);
             translates.emplace_back(cube.get_model_matrix());
         }
-        m_Vao.get_buffer(2).first.set_data_dynamic<glm::mat4>(translates.data(), translates.size());
+        m_Vao.get_buffer(2).first.set_range<glm::mat4>(0, translates.data(), translates.size());
 
         draw_elements_instanced(app::DrawMode::TRIANGLES, 36, translates.size());
         m_Vao.unbind();
