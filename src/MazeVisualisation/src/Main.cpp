@@ -9,7 +9,7 @@
 #include "Logging.h"
 #include "Renderer/GLUtil.h"
 #include "Renderer/Shader.h"
-#include "Renderer/BatchRenderer.h"
+#include "Renderer/VertexObjectBinding.h"
 
 class App : public app::Application {
 
@@ -24,7 +24,12 @@ private:
     std::string                       m_ViewMatrixUniform       = "u_ViewMatrix";
     std::string                       m_ModelMatrixUniform      = "u_ModelMatrix";
     std::vector<maze::RenderableCube> m_Cubes{};
-    app::BatchRenderer                m_BatchRenderer{};
+    app::Vao                          m_Vao{};
+    size_t                            m_GridSize                = 32;
+
+    size_t m_TickCount         = 0;
+    float  m_FrameTimeTotal    = 0.0f;
+    size_t m_MaxFrameTimeCount = 5000;
 
     // Matrices
     glm::mat4 m_ProjectionMatrix = glm::mat4{ 1 };
@@ -38,7 +43,7 @@ public:
 
     virtual void camera_update(app::Window& window, float delta) override {
         Camera3D::camera_update(window, delta);
-        get_camera_state().cam_pos.y = 0.F;
+        get_camera_state().cam_pos.y = 3.F;
     }
 
     virtual void on_create() override {
@@ -55,46 +60,72 @@ public:
         m_ShaderProgram->enable();
 
         // Initial Projection & View Matrix
-        m_ProjectionMatrix = glm::perspective(glm::radians(45.f), 4.f / 3.f, 0.1f, 1000.f);
+        m_ProjectionMatrix = glm::perspective(glm::radians(45.f), 4.f / 3.f, 0.1f, 100.f);
 
-        int grid_size = 32;
+        int grid_size = m_GridSize;
 
         for (int i = 0; i < grid_size; ++i) {
             for (int j = 0; j < grid_size; ++j) {
                 maze::RenderableCube cube{};
                 cube.get_transform().translate = { i, 0, j };
                 cube.get_transform().scale     = { 0.25, 0.25, 0.25 };
-                m_Cubes.emplace_back(std::move(cube));
+                m_Cubes.emplace_back(cube);
             }
         }
 
-        m_BatchRenderer.init();
-        m_BatchRenderer.bind_all();
-        m_BatchRenderer.set_indices(maze::cube_obj::s_Indices.data(), 36);
-        m_BatchRenderer.set_vertex_buffer(maze::cube_obj::s_VertexPositions.data(), 24);
-        m_BatchRenderer.set_extra_buffer(maze::cube_obj::s_Colours.data(), 36, 5, 3);
+        m_Vao.init();
+        m_Vao.bind();
 
+        // Vertex Buffer
+        app::SimpleBuffer vertex_buffer = app::array_buffer();
+        vertex_buffer.init();
+        vertex_buffer.bind();
+        vertex_buffer.set_data_static<float>(maze::cube_obj::s_VertexPositions.data(), 24);
+        m_Vao.add_buffer<app::Vec3Attribute>(vertex_buffer, 0U);
+
+        // Index Buffer
+        m_Vao.set_index_buffer(maze::cube_obj::s_Indices.data(), 36);
+
+        // Colour Buffer
+        app::SimpleBuffer colour_buffer = app::array_buffer();
+        colour_buffer.init();
+        colour_buffer.bind();
+        colour_buffer.set_data_static<float>(maze::cube_obj::s_Colours.data(), 24);
+        m_Vao.add_buffer<app::Vec3Attribute>(colour_buffer, 1U);
+
+        // Matrix Buffer
         std::vector<glm::mat4> translates{};
-        translates.reserve(128*128);
         for (auto& cube : m_Cubes) {
-            cube.update(0.008F);
-//            cube.render_singular(*this, *m_ShaderProgram);
+            cube.update(0.008);
             translates.emplace_back(cube.get_model_matrix());
         }
-        m_BatchRenderer.set_model_matrix(translates.data(), translates.size());
 
-        m_BatchRenderer.unbind();
+        app::SimpleBuffer matrix_buffer = app::array_buffer();
+        matrix_buffer.init();
+        matrix_buffer.bind();
+        matrix_buffer.set_data_dynamic<glm::mat4>(translates.data(), translates.size());
+        m_Vao.add_buffer<app::FloatMat4Attrib>(matrix_buffer, 2U);
+
+        m_Vao.unbind();
 
     }
 
     virtual bool on_update(float delta) override {
         m_Theta += delta;
-        set_title(std::format(
-                "Window # {}fps, Delta: {:6f}, Theta: {:4f}, {:4f}",
-                (int) (1.0 / (delta)),
-                delta,
-                m_Theta,
-                abs(sin(m_Theta * 2))).c_str()
+
+        ++m_TickCount;
+        m_FrameTimeTotal += delta;
+        float avg = m_FrameTimeTotal / m_TickCount;
+        if (m_TickCount >= m_MaxFrameTimeCount) m_TickCount = 0;
+
+        set_title(
+                std::format(
+                        "Window # {}fps, Delta: {:6f}, Theta: {:4f}, Avg: {:4f}",
+                        (int) (1.0 / (delta)),
+                        delta,
+                        m_Theta,
+                        avg
+                ).c_str()
         );
         const glm::ivec2& size = get_window_size();
         set_viewport(0, 0, size.x, size.y);
@@ -107,17 +138,18 @@ public:
         m_ShaderProgram->set_uniform(m_ProjectionMatrixUniform, m_ProjectionMatrix);
         m_ShaderProgram->set_uniform(m_ViewMatrixUniform, get_camera_matrix());
 
-        std::vector<glm::mat4> translates{};
-        translates.reserve(128*128);
+        m_Vao.bind_all();
+
+        std::vector<glm::mat4> matrices{};
+        matrices.reserve(m_Cubes.size());
         for (auto& cube : m_Cubes) {
             cube.update(delta);
-//            cube.render_singular(*this, *m_ShaderProgram);
-            translates.emplace_back(cube.get_model_matrix());
+            matrices.emplace_back(std::move(cube.get_model_matrix()));
         }
+        m_Vao.get_buffer(2).first.set_range<glm::mat4>(0, matrices.data(), matrices.size());
 
-        m_BatchRenderer.bind_all();
-        draw_elements_instanced(app::DrawMode::TRIANGLES, 36, translates.size());
-        m_BatchRenderer.unbind();
+        draw_elements_instanced(app::DrawMode::TRIANGLES, 36, m_Cubes.size());
+        m_Vao.unbind();
 
         m_ShaderProgram->disable();
 
