@@ -140,14 +140,15 @@ public:
 
         m_Vao.bind_all();
 
-        std::vector<glm::mat4> translates{};
+        std::vector<glm::mat4> matrices{};
+        matrices.reserve(m_Cubes.size());
         for (auto& cube : m_Cubes) {
             cube.update(delta);
-            translates.emplace_back(cube.get_model_matrix());
+            matrices.emplace_back(std::move(cube.get_model_matrix()));
         }
-        m_Vao.get_buffer(2).first.set_range<glm::mat4>(0, translates.data(), translates.size());
+        m_Vao.get_buffer(2).first.set_range<glm::mat4>(0, matrices.data(), matrices.size());
 
-        draw_elements_instanced(app::DrawMode::TRIANGLES, 36, translates.size());
+        draw_elements_instanced(app::DrawMode::TRIANGLES, 36, m_Cubes.size());
         m_Vao.unbind();
 
         m_ShaderProgram->disable();
