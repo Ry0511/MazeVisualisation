@@ -19,13 +19,11 @@ private:
     app::Shader* m_ShaderProgram = nullptr;
 
     // Uniforms
-    std::string                       m_ThetaUniform            = "u_Theta";
-    std::string                       m_ProjectionMatrixUniform = "u_ProjectionMatrix";
-    std::string                       m_ViewMatrixUniform       = "u_ViewMatrix";
-    std::string                       m_ModelMatrixUniform      = "u_ModelMatrix";
-    std::vector<maze::RenderableCube> m_Cubes{};
-    app::Vao                          m_Vao{};
-    size_t                            m_GridSize                = 32;
+    std::string m_ThetaUniform            = "u_Theta";
+    std::string m_ProjectionMatrixUniform = "u_ProjectionMatrix";
+    std::string m_ViewMatrixUniform       = "u_ViewMatrix";
+    app::Vao    m_Vao{};
+    size_t      m_GridSize                = 128;
 
     size_t m_TickCount         = 0;
     float  m_FrameTimeTotal    = 0.0f;
@@ -33,6 +31,7 @@ private:
 
     // Matrices
     glm::mat4 m_ProjectionMatrix = glm::mat4{ 1 };
+    glm::mat4 m_ModelMatrix      = glm::mat4{ 1 };
 
 public:
     App() : app::Application("My App", 800, 600) {}
@@ -49,29 +48,22 @@ public:
     virtual void on_create() override {
         INFO("[ON_CREATE]");
         set_clear_colour({ 0.1, 0.1, 0.1, 1.0 });
+        GL(glEnable(GL_STENCIL_TEST));
         GL(glEnable(GL_DEPTH_TEST));
+        GL(glEnable(GL_CULL_FACE));
+        GL(glFrontFace(GL_CCW));
+        GL(glCullFace(GL_BACK));
         GL(glPolygonMode(GL_FRONT_AND_BACK, GL_FILL));
         GL(glLineWidth(4));
 
         m_ShaderProgram = new app::Shader(
-                app::Shader::read_file_to_string("Res/Shaders/VertexShaderInstanced.glsl"),
+                app::Shader::read_file_to_string("Res/Shaders/MazeVertexShader.glsl"),
                 app::Shader::read_file_to_string("Res/Shaders/FragmentShader.glsl")
         );
         m_ShaderProgram->enable();
 
         // Initial Projection & View Matrix
         m_ProjectionMatrix = glm::perspective(glm::radians(45.f), 4.f / 3.f, 0.1f, 100.f);
-
-        int grid_size = m_GridSize;
-
-        for (int i = 0; i < grid_size; ++i) {
-            for (int j = 0; j < grid_size; ++j) {
-                maze::RenderableCube cube{};
-                cube.get_transform().translate = { i, 0, j };
-                cube.get_transform().scale     = { 0.25, 0.25, 0.25 };
-                m_Cubes.emplace_back(cube);
-            }
-        }
 
         m_Vao.init();
         m_Vao.bind();
@@ -93,18 +85,24 @@ public:
         colour_buffer.set_data_static<float>(maze::cube_obj::s_Colours.data(), 24);
         m_Vao.add_buffer<app::Vec3Attribute>(colour_buffer, 1U);
 
-        // Matrix Buffer
-        std::vector<glm::mat4> translates{};
-        for (auto& cube : m_Cubes) {
-            cube.update(0.008);
-            translates.emplace_back(cube.get_model_matrix());
-        }
+        // Vertex Position Buffer
+        app::SimpleBuffer position_buffer = app::array_buffer();
+        position_buffer.init();
+        position_buffer.bind();
+        position_buffer.set_data_static<glm::vec3>(nullptr, m_GridSize * m_GridSize);
+        m_Vao.add_buffer<app::Vec3Attribute>(position_buffer, 2U, 1);
 
-        app::SimpleBuffer matrix_buffer = app::array_buffer();
-        matrix_buffer.init();
-        matrix_buffer.bind();
-        matrix_buffer.set_data_dynamic<glm::mat4>(translates.data(), translates.size());
-        m_Vao.add_buffer<app::FloatMat4Attrib>(matrix_buffer, 2U);
+        // Generate Cubes
+        maze::CubeManager& manager = add_component<maze::CubeManager>(create_entity(), m_Vao);
+
+        for (size_t i = 0; i < m_GridSize; ++i) {
+            for (size_t j = 0; j < m_GridSize; ++j) {
+                app::Entity entity = create_entity();
+                add_component<maze::Cube>(entity, entity);
+                add_component<app::Position>(entity, glm::vec3{ i, 0, j });
+            }
+        }
+        manager.init(this);
 
         m_Vao.unbind();
 
@@ -129,27 +127,23 @@ public:
         );
         const glm::ivec2& size = get_window_size();
         set_viewport(0, 0, size.x, size.y);
-        clear();
+        Renderer::clear();
 
         // Push Uniforms
         if (m_ShaderProgram == nullptr) throw std::exception();
         m_ShaderProgram->enable();
+
+        // Uniforms
         m_ShaderProgram->set_uniform(m_ThetaUniform, m_Theta);
         m_ShaderProgram->set_uniform(m_ProjectionMatrixUniform, m_ProjectionMatrix);
         m_ShaderProgram->set_uniform(m_ViewMatrixUniform, get_camera_matrix());
 
-        m_Vao.bind_all();
-
-        std::vector<glm::mat4> matrices{};
-        matrices.reserve(m_Cubes.size());
-        for (auto& cube : m_Cubes) {
-            cube.update(delta);
-            matrices.emplace_back(std::move(cube.get_model_matrix()));
+        auto             view = get_view<maze::CubeManager>();
+        for (app::Entity id : view) {
+            maze::CubeManager& manager = view.get<maze::CubeManager>(id);
+            manager.update(delta, this);
+            manager.render(this, m_ShaderProgram);
         }
-        m_Vao.get_buffer(2).first.set_range<glm::mat4>(0, matrices.data(), matrices.size());
-
-        draw_elements_instanced(app::DrawMode::TRIANGLES, 36, m_Cubes.size());
-        m_Vao.unbind();
 
         m_ShaderProgram->disable();
 
@@ -158,6 +152,7 @@ public:
 };
 
 int main() {
-    auto app = App();
-    app.start();
+    auto app = new App();
+    app->start();
+    delete app;
 }

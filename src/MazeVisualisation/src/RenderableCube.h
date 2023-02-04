@@ -5,9 +5,11 @@
 #ifndef MAZEVISUALISATION_RENDERABLECUBE_H
 #define MAZEVISUALISATION_RENDERABLECUBE_H
 
-#include "Renderer/RenderableEntity.h"
+#include "Renderer/Shader.h"
 
 namespace maze {
+
+    using namespace app;
 
     namespace cube_obj {
         static constexpr std::array<float, 24> s_VertexPositions = {
@@ -52,39 +54,59 @@ namespace maze {
         };
     }
 
-    class RenderableCube : public app::RenderableEntity {
+    struct Cube {
+        Entity id;
+    };
 
-    private:
-        inline static size_t s_InstanceCount = 0;
+    struct CubeManager {
 
-    private:
-        float m_Theta = 0.0F;
+        app::Vao  cube_vao;
+        float     theta         = 0.0F;
+        size_t    entity_count  = 0;
+        glm::vec3 global_rotate = glm::vec3{ 0 };
 
-    public:
-        RenderableCube() : app::RenderableEntity() {
-            ++s_InstanceCount;
+        glm::mat4 rotate = glm::mat4{ 1 };
+        glm::mat4 scale  = glm::scale(glm::mat4{ 1 }, glm::vec3{ 0.25 });
+
+        void init(app::Application* app) {
+
+            auto group = app->get_group<Cube, Position>();
+
+            cube_vao.bind_all();
+            auto& [buffer, attrib] = cube_vao.get_buffer(2);
+
+            size_t i = 0;
+
+            std::vector<glm::vec3> positions{};
+            buffer.bind();
+            for (auto id : group) {
+                Position& pos = group.get<Position>(id);
+
+                buffer.set_range<glm::vec3>(i, &pos.position, 1);
+                ++i;
+                entity_count = i;
+            }
+            cube_vao.unbind();
+
         }
 
-        RenderableCube(const RenderableCube& c) {
-            m_Transform = c.m_Transform;
-            ++s_InstanceCount;
+        void update(float delta, app::Application* app) {
+            theta += delta;
+            float t = theta;
+            global_rotate = glm::vec3{ t * 1.1, t * 0.85, t * 1.65 };
+
+            rotate = glm::rotate(glm::mat4{ 1 }, global_rotate.x, { 1, 0, 0 })
+                     * glm::rotate(glm::mat4{ 1 }, global_rotate.y, { 0, 1, 0 })
+                     * glm::rotate(glm::mat4{ 1 }, global_rotate.z, { 0, 0, 1 });
         }
 
-        RenderableCube(RenderableCube&& c) {
-            m_Transform = c.m_Transform;
-            ++s_InstanceCount;
+        void render(app::Application* app, app::Shader* shader) {
+            cube_vao.bind_all();
+            shader->set_uniform("u_RotateMatrix", rotate);
+            shader->set_uniform("u_ScaleMatrix", scale);
+            app->draw_elements_instanced(app::DrawMode::TRIANGLES, 36, entity_count);
+            cube_vao.unbind();
         }
-
-        ~RenderableCube() {
-            --s_InstanceCount;
-        }
-
-    public:
-        virtual void update(float ts) override {
-            m_Theta += ts;
-            m_Transform.rotate = { m_Theta, m_Theta, m_Theta };
-        }
-
     };
 }
 

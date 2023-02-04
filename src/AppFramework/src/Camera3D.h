@@ -19,9 +19,9 @@ namespace app {
 
     namespace camera_constants {
         inline static constexpr float     s_InitialSpeed       = 4.F;
-        inline static constexpr float     s_InitialSpeedScalar = 3.F;
-        inline static constexpr float     s_FullRotation       = 360.f;
-        inline static constexpr float     s_InitialYaw         = -90.F;
+        inline static constexpr float     s_InitialSpeedScalar = 8.F;
+        inline static constexpr float     s_FullRotation       = 360.F;
+        inline static constexpr float     s_InitialYaw         = 0.0F;
         inline static constexpr float     s_InitialPitch       = 0.F;
         inline static constexpr float     s_MinPitch           = -89.f;
         inline static constexpr float     s_MaxPitch           = 89.f;
@@ -69,7 +69,8 @@ namespace app {
                 CameraState{
                         .cam_pos = initial_pos,
                         .cam_yaw = yaw,
-                        .cam_pitch = pitch
+                        .cam_pitch = pitch,
+                        .is_dirty = true
                 }
         ), m_Matrix(glm::mat4{ 1 }) {
 
@@ -112,7 +113,7 @@ namespace app {
                 app.lock_cursor_to_centre(false);
             }
 
-            m_State.is_dirty  = true;
+            m_State.is_dirty = true;
         };
 
         //############################################################################//

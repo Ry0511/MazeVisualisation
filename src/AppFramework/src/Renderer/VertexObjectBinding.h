@@ -237,11 +237,6 @@ namespace app {
 
         template<class T, auto TSize = sizeof(T)>
         void set_range(size_t offset_index, const GLvoid* data, size_t count) {
-            HINFO(
-                    "[BUF_SET_RANGE]", " # Set {:p} -> {:p}",
-                    (void*) (TSize * offset_index),
-                    (void*) (TSize * count)
-            );
             ASSERT(is_bound(), "Can't set buffer data if the buffer is not bound...");
             GL(glBufferSubData(
                     m_BufferState->get_buffer_type(),

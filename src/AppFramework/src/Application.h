@@ -11,13 +11,14 @@
 #include "Window.h"
 
 #include "Renderer/Renderer.h"
+#include "Renderer/EntityComponentSystem.h"
 #include "Camera3D.h"
 
 #include <string>
 
 namespace app {
 
-    class Application : public Window, public Renderer, public Camera3D {
+    class Application : public Window, public Renderer, public EntityComponentSystem, public Camera3D {
 
     private:
         bool m_IsRunning    = false;

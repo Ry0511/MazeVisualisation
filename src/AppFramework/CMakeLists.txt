@@ -12,8 +12,7 @@ set(AppFramework_HEADER_FILES
         src/Renderer/GLUtil.h
         src/Renderer/Shader.h
         src/Camera3D.h
-        src/Renderer/RenderableEntity.h
-        src/Renderer/VertexObjectBinding.h)
+        src/Renderer/VertexObjectBinding.h src/Renderer/EntityComponentSystem.h)
 
 set(AppFramework_SOURCE_FILES
         src/Window.cpp
@@ -37,5 +36,8 @@ target_link_libraries(${PROJECT_NAME} PUBLIC glm::glm)
 
 find_package(GLEW REQUIRED)
 target_link_libraries(${PROJECT_NAME} PUBLIC GLEW::GLEW)
+
+find_package(EnTT CONFIG REQUIRED)
+target_link_libraries(${PROJECT_NAME} PUBLIC EnTT::EnTT)
 
 find_package(OpenGL REQUIRED)
