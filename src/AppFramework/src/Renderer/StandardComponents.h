@@ -39,6 +39,8 @@ namespace app::components {
     // | COLLISION COMPONENTS |
     //############################################################################//
 
+    struct ArbitraryCollider {};
+
     struct BoxCollider {
         glm::vec3 bl;
         glm::vec3 tr;
