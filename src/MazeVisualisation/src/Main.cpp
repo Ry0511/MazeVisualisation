@@ -23,7 +23,7 @@ private:
     std::string m_ProjectionMatrixUniform = "u_ProjectionMatrix";
     std::string m_ViewMatrixUniform       = "u_ViewMatrix";
     app::Vao    m_Vao{};
-    size_t      m_GridSize                = 128;
+    size_t      m_GridSize                = 32;
 
     size_t m_TickCount         = 0;
     float  m_FrameTimeTotal    = 0.0f;
@@ -115,6 +115,8 @@ public:
         m_FrameTimeTotal += delta;
         float avg = m_FrameTimeTotal / m_TickCount;
         if (m_TickCount >= m_MaxFrameTimeCount) m_TickCount = 0;
+
+        m_ProjectionMatrix = glm::perspective(glm::radians(45.f), 4.f / 3.f, 0.1f, 100.f);
 
         set_title(
                 std::format(
