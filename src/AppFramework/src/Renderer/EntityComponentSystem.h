@@ -67,7 +67,7 @@ namespace app {
         //############################################################################//
 
         template<class T, class... Args>
-        T& add_component(const Entity entity, Args&& ... args) {
+        decltype(auto) add_component(const Entity entity, Args&& ... args) {
             return m_Registry.emplace<T>(entity, args...);
         }
 

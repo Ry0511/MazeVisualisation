@@ -98,7 +98,7 @@ public:
         for (size_t i = 0; i < m_GridSize; ++i) {
             for (size_t j = 0; j < m_GridSize; ++j) {
                 app::Entity entity = create_entity();
-                add_component<maze::Cube>(entity, entity);
+                add_component<maze::Cube>(entity);
                 add_component<app::Position>(entity, glm::vec3{ i, 0, j });
             }
         }

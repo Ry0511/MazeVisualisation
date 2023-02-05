@@ -55,7 +55,7 @@ namespace maze {
     }
 
     struct Cube {
-        Entity id;
+
     };
 
     struct CubeManager {
