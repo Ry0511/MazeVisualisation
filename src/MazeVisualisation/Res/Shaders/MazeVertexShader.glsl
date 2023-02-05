@@ -6,10 +6,8 @@ layout (location = 2) in vec3 m_pos;
 
 out vec3 colour;
 
-// Matrices
 uniform mat4 u_ProjectionMatrix;
 uniform mat4 u_ViewMatrix;
-
 uniform mat4 u_RotateMatrix;
 uniform mat4 u_ScaleMatrix;
 uniform float u_Theta;
