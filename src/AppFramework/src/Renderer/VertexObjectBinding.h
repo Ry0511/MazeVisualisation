@@ -621,6 +621,143 @@ namespace app {
 
     };
 
+    //############################################################################//
+    // | MODEL |
+    //############################################################################//
+
+    using VertexVector = std::vector<glm::vec3>;
+    using IndicesVector = std::vector<unsigned int>;
+    using MeshIdentity = unsigned long long;
+    using ThreePointTuple = std::tuple<glm::vec3&, glm::vec3&, glm::vec3&>;
+
+    class TriangularMeshModel {
+
+    private:
+        inline static unsigned long long s_MeshCount = 0UL;
+
+    private:
+        long long     m_Id;
+        VertexVector  m_Vertices{};
+        VertexVector  m_TextureCoords{};
+        VertexVector  m_Normals{};
+        IndicesVector m_Indices{};
+
+    public:
+
+        TriangularMeshModel() : m_Id(s_MeshCount++) {}
+
+        ~TriangularMeshModel() {
+            --s_MeshCount;
+            HINFO("[MODEL_DELETE]", " # Deleting Model: {}", to_string());
+        }
+
+        //############################################################################//
+        // | GET DATA |
+        //############################################################################//
+
+    public:
+        inline MeshIdentity get_identity() const {
+            return m_Id;
+        }
+
+        inline const glm::vec3* get_vertex_ptr() const {
+            return m_Vertices.data();
+        }
+
+        inline const glm::vec3* get_tex_ptr() const {
+            return m_TextureCoords.data();
+        }
+
+        inline const glm::vec3* get_normals_ptr() const {
+            return m_Normals.data();
+        }
+
+        inline const unsigned int* get_indices_ptr() const {
+            return m_Indices.data();
+        }
+
+        //############################################################################//
+        // | ADD DATA |
+        //############################################################################//
+
+    public:
+        void add_vertex(const glm::vec3& vertex, bool normalise = false) {
+            if (normalise) {
+                m_Vertices.push_back(glm::normalize(vertex));
+            } else {
+                m_Vertices.push_back(vertex);
+            }
+        }
+
+        void add_tex_coord(const glm::vec3& tex_coord, bool normalise = false) {
+            if (normalise) {
+                m_TextureCoords.push_back(glm::normalize(tex_coord));
+            } else {
+                m_TextureCoords.push_back(tex_coord);
+            }
+        }
+
+        void add_normal(const glm::vec3& normal, bool normalise = false) {
+            if (normalise) {
+                m_Normals.push_back(glm::normalize(normal));
+            } else {
+                m_Normals.push_back(normal);
+            }
+        }
+
+        void add_index(const unsigned int index) {
+            m_Indices.push_back(index);
+        }
+
+        //############################################################################//
+        // | ITERATE DATA |
+        //############################################################################//
+
+    public:
+
+        // This is verbose
+        #define FOR_EACH_INDEX(i) for (unsigned int i = 0; i < m_Indices.size(); ++i)
+        #define GET_INDICES(j, k, l) unsigned int j = m_Indices[i], k = m_Indices[++i], l = m_Indices[++i]
+
+        template<class Function>
+        void for_all_triangles(Function fn) {
+            FOR_EACH_INDEX(i) {
+                GET_INDICES(j, k, l);
+
+                auto x = ThreePointTuple{ m_Vertices[j], m_Vertices[k], m_Vertices[l] };
+                fn(x);
+            }
+        }
+
+        template<class Function>
+        void for_all_components(Function fn) {
+            FOR_EACH_INDEX(i) {
+                GET_INDICES(j, k, l);
+
+                auto vertices = ThreePointTuple{ m_Vertices[j], m_Vertices[k], m_Vertices[l] };
+                auto normals  = ThreePointTuple{ m_Vertices[j], m_Vertices[k], m_Vertices[l] };
+                fn(vertices, normals);
+            }
+        }
+
+        //############################################################################//
+        // | UTILITY FUNCTIONS |
+        //############################################################################//
+
+    public:
+
+        std::string to_string() const {
+            return std::format(
+                    "( ID={}, Vertices={}, Tex-Coords={}, Normals={}, Indices={} )",
+                    m_Id,
+                    m_Vertices.size(),
+                    m_TextureCoords.size(),
+                    m_Normals.size(),
+                    m_Indices.size()
+            );
+        }
+    };
+
 }
 
 #endif //MAZEVISUALISATION_VERTEXOBJECTBINDING_H
