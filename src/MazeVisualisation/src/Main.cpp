@@ -10,6 +10,9 @@
 #include "Renderer/GLUtil.h"
 #include "Renderer/Shader.h"
 #include "Renderer/VertexObjectBinding.h"
+#include "Renderer/StandardComponents.h"
+
+using namespace app::components;
 
 class App : public app::Application {
 
@@ -19,11 +22,12 @@ private:
     app::Shader* m_ShaderProgram = nullptr;
 
     // Uniforms
-    std::string m_ThetaUniform            = "u_Theta";
-    std::string m_ProjectionMatrixUniform = "u_ProjectionMatrix";
-    std::string m_ViewMatrixUniform       = "u_ViewMatrix";
-    app::Vao    m_Vao{};
-    size_t      m_GridSize                = 32;
+    std::string       m_ThetaUniform            = "u_Theta";
+    std::string       m_ProjectionMatrixUniform = "u_ProjectionMatrix";
+    std::string       m_ViewMatrixUniform       = "u_ViewMatrix";
+    app::Vao          m_Vao{};
+    size_t            m_GridSize                = 32;
+    maze::CubeManager m_CubeManager             = maze::CubeManager{ m_Vao };
 
     size_t m_TickCount         = 0;
     float  m_FrameTimeTotal    = 0.0f;
@@ -92,18 +96,15 @@ public:
         position_buffer.set_data_static<glm::vec3>(nullptr, m_GridSize * m_GridSize);
         m_Vao.add_buffer<app::Vec3Attribute>(position_buffer, 2U, 1);
 
-        // Generate Cubes
-        maze::CubeManager& manager = add_component<maze::CubeManager>(create_entity(), m_Vao);
-
         for (size_t i = 0; i < m_GridSize; ++i) {
             for (size_t j = 0; j < m_GridSize; ++j) {
                 app::Entity entity = create_entity();
                 add_component<maze::Cube>(entity);
-                add_component<app::Position>(entity, glm::vec3{ i, 0, j });
+                add_component<Position>(entity, i, 0, j);
             }
         }
-        manager.init(this);
 
+        m_CubeManager.init(this);
         m_Vao.unbind();
 
     }
@@ -115,8 +116,6 @@ public:
         m_FrameTimeTotal += delta;
         float avg = m_FrameTimeTotal / m_TickCount;
         if (m_TickCount >= m_MaxFrameTimeCount) m_TickCount = 0;
-
-        m_ProjectionMatrix = glm::perspective(glm::radians(45.f), 4.f / 3.f, 0.1f, 100.f);
 
         set_title(
                 std::format(
@@ -139,12 +138,9 @@ public:
         m_ShaderProgram->set_uniform(m_ProjectionMatrixUniform, m_ProjectionMatrix);
         m_ShaderProgram->set_uniform(m_ViewMatrixUniform, get_camera_matrix());
 
-        auto             view = get_view<maze::CubeManager>();
-        for (app::Entity id : view) {
-            maze::CubeManager& manager = view.get<maze::CubeManager>(id);
-            manager.update(delta, this);
-            manager.render(this, m_ShaderProgram);
-        }
+        // Updates Cubes
+        m_CubeManager.update(delta, this);
+        m_CubeManager.render(this, m_ShaderProgram);
 
         m_ShaderProgram->disable();
 

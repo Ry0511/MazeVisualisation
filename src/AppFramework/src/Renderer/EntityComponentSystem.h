@@ -6,8 +6,8 @@
 #define MAZEVISUALISATION_ENTITYCOMPONENTSYSTEM_H
 
 #include "Logging.h"
+#include "Application.h"
 
-#include <glm/glm.hpp>
 #include <entt/entt.hpp>
 
 namespace app {
@@ -138,37 +138,6 @@ namespace app {
             return m_Registry.group<Components...>();
         }
     };
-
-    //############################################################################//
-    // | BASIC COMPONENTS |
-    //############################################################################//
-
-    struct Position {
-        glm::vec3 position{ 0 };
-    };
-
-    struct Rotation {
-        glm::vec3 rotation{ 0 };
-    };
-
-    struct Scale {
-        glm::vec3 scale{ 1 };
-    };
-
-    struct BoxCollider {
-        glm::vec3 bl;
-        glm::vec3 tr;
-
-        bool collides(const BoxCollider& o) {
-            return bl.x >= o.bl.x
-                   && bl.y >= o.bl.y
-                   && bl.z >= o.bl.z
-                   && tr.x <= o.tr.x
-                   && tr.y <= o.tr.y
-                   && tr.z <= o.tr.z;
-        }
-    };
-
 }
 
 #endif //MAZEVISUALISATION_ENTITYCOMPONENTSYSTEM_H
