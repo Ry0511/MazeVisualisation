@@ -120,11 +120,10 @@ public:
 
         set_title(
                 std::format(
-                        "Window # {}fps, Delta: {:6f}, Theta: {:4f}, Avg: {:4f}",
+                        "Window # {}fps, Delta: {:.6f}, {}",
                         (int) (1.0 / (delta)),
                         delta,
-                        m_Theta,
-                        avg
+                        Camera3D::to_string()
                 ).c_str()
         );
         const glm::ivec2& size = get_window_size();

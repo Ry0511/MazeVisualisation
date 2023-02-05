@@ -175,6 +175,23 @@ namespace app {
             }
             return m_Matrix;
         }
+
+        inline std::string to_string() const {
+            return std::format(
+                    "( Pos={:.2f},{:.2f},{:.2f} Yaw={:.3f}, Pitch={:.3f}, Right={:.2f},{:.2f},{:.2f} Up={:.2f},{:.2f},{:.2f} )",
+                    m_State.cam_pos.x,
+                    m_State.cam_pos.y,
+                    m_State.cam_pos.z,
+                    m_State.cam_yaw,
+                    m_State.cam_pitch,
+                    m_State.cam_right.x,
+                    m_State.cam_right.y,
+                    m_State.cam_right.z,
+                    m_State.cam_up.x,
+                    m_State.cam_up.y,
+                    m_State.cam_up.z
+            );
+        }
     };
 }
 
