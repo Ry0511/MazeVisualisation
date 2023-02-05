@@ -64,7 +64,7 @@ namespace app {
                 static_cast<GLenum>(type),
                 indices,
                 instance_count
-           ));
+        ));
     }
 
 } // app

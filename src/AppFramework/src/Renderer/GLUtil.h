@@ -7,8 +7,10 @@
 
 #include "Logging.h"
 #include <gl/glew.h>
+
 #include <string>
 #include <optional>
+#include <format>
 
 namespace app {
 
@@ -65,7 +67,7 @@ namespace app {
     // | MACROS |
     //############################################################################//
 
-    #ifdef Debug
+    #ifdef Logging
 
     #define GL(x) x; app::check_gl_error(#x, __FILE__, __LINE__, __FUNCTION__)
 
