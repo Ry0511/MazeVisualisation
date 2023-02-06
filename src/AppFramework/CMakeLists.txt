@@ -15,7 +15,7 @@ set(AppFramework_HEADER_FILES
         src/Renderer/VertexObjectBinding.h
         src/Renderer/EntityComponentSystem.h
         src/Renderer/StandardComponents.h
-        src/WavefrontFile.h)
+        src/CommonModelFileReaders.h)
 
 set(AppFramework_SOURCE_FILES
         src/Window.cpp

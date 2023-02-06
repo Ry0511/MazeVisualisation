@@ -266,6 +266,19 @@ namespace app {
         return SimpleBuffer{ BufferContainerType::UNIFORM_BUFFER };
     }
 
+    template<class T,
+            BufferContainerType Type = BufferContainerType::ARRAY,
+            BufferAllocUsage Usage = BufferAllocUsage::STATIC_DRAW
+    >
+    static SimpleBuffer init_buffer(const T* data, const size_t size) {
+        SimpleBuffer b{ Type };
+        b.init();
+        b.bind();
+        b.set_data<T, Usage>(data, size);
+        b.unbind();
+        return b;
+    }
+
     //############################################################################//
     // | VERTEX ATTRIBUTE |
     //############################################################################//
@@ -434,6 +447,7 @@ namespace app {
     using FloatMat4Attrib = MatrixAttributePointer<4, 4, GLfloat, PrimitiveType::FLOAT>;
     using IntMat4Attrib = MatrixAttributePointer<4, 4, GLint, PrimitiveType::INT>;
     using ByteMat4Attrib = MatrixAttributePointer<4, 4, GLbyte, PrimitiveType::BYTE>;
+    using FloatMat3Attrib = MatrixAttributePointer<3,3, GLfloat, PrimitiveType::FLOAT>;
 
     //############################################################################//
     // | BUFFER & ATTRIBUTE TOGGLES |
@@ -625,136 +639,152 @@ namespace app {
     // | MODEL |
     //############################################################################//
 
-    using VertexVector = std::vector<glm::vec3>;
-    using IndicesVector = std::vector<unsigned int>;
     using MeshIdentity = unsigned long long;
-    using ThreePointTuple = std::tuple<glm::vec3&, glm::vec3&, glm::vec3&>;
+    using Index = unsigned int;
 
-    class TriangularMeshModel {
+    // Vertex, Texture, Normal
+    using IndicesVector = std::vector<glm::ivec3>;
+    using Vec3Vector = std::vector<glm::vec3>;
+
+    class Mutable3DModel {
 
     private:
-        inline static unsigned long long s_MeshCount = 0UL;
+        inline static MeshIdentity s_MeshCount = 0UL;
 
     private:
         long long     m_Id;
-        VertexVector  m_Vertices{};
-        VertexVector  m_TextureCoords{};
-        VertexVector  m_Normals{};
+        Vec3Vector    m_Vertices{};
+        Vec3Vector    m_Normals{};
+        Vec3Vector    m_TextureCoords{};
         IndicesVector m_Indices{};
 
     public:
 
-        TriangularMeshModel() : m_Id(s_MeshCount++) {}
+        Mutable3DModel() : m_Id(s_MeshCount++) {}
 
-        ~TriangularMeshModel() {
+        ~Mutable3DModel() {
             --s_MeshCount;
             HINFO("[MODEL_DELETE]", " # Deleting Model: {}", to_string());
         }
 
         //############################################################################//
-        // | GET DATA |
+        // | GET & SET DATA |
         //############################################################################//
 
     public:
-        inline MeshIdentity get_identity() const {
-            return m_Id;
+        const Vec3Vector& get_vertices() const {
+            return m_Vertices;
         }
 
-        inline const glm::vec3* get_vertex_ptr() const {
+        const glm::vec3* get_vertices_data() const {
             return m_Vertices.data();
         }
 
-        inline const glm::vec3* get_tex_ptr() const {
-            return m_TextureCoords.data();
+        const Vec3Vector& get_normals() const {
+            return m_Normals;
         }
 
-        inline const glm::vec3* get_normals_ptr() const {
+        const glm::vec3* get_normals_data() const {
             return m_Normals.data();
         }
 
-        inline const unsigned int* get_indices_ptr() const {
-            return m_Indices.data();
+        const Vec3Vector& get_texture_coords() const {
+            return m_TextureCoords;
+        }
+
+        const glm::vec3* get_texture_coords_data() const {
+            return m_TextureCoords.data();
+        }
+
+        void add_vertex(
+                const glm::vec3& vertex,
+                const glm::vec3& normal,
+                const glm::vec3& tex_coord
+        ) {
+            m_Vertices.push_back(vertex);
+            m_Vertices.push_back(normal);
+            m_Vertices.push_back(tex_coord);
+        }
+
+        void add_vert(const glm::vec3& vert) {
+            m_Vertices.push_back(vert);
+        }
+
+        void add_normal(const glm::vec3& vert) {
+            m_Normals.push_back(vert);
+        }
+
+        void add_tex_pos(const glm::vec3& vert) {
+            m_TextureCoords.push_back(vert);
+        }
+
+        void add_vertex_index(const glm::ivec3& indices) {
+            m_Indices.push_back(indices);
         }
 
         //############################################################################//
-        // | ADD DATA |
-        //############################################################################//
-
-    public:
-        void add_vertex(const glm::vec3& vertex, bool normalise = false) {
-            if (normalise) {
-                m_Vertices.push_back(glm::normalize(vertex));
-            } else {
-                m_Vertices.push_back(vertex);
-            }
-        }
-
-        void add_tex_coord(const glm::vec3& tex_coord, bool normalise = false) {
-            if (normalise) {
-                m_TextureCoords.push_back(glm::normalize(tex_coord));
-            } else {
-                m_TextureCoords.push_back(tex_coord);
-            }
-        }
-
-        void add_normal(const glm::vec3& normal, bool normalise = false) {
-            if (normalise) {
-                m_Normals.push_back(glm::normalize(normal));
-            } else {
-                m_Normals.push_back(normal);
-            }
-        }
-
-        void add_index(const unsigned int index) {
-            m_Indices.push_back(index);
-        }
-
-        //############################################################################//
-        // | ITERATE DATA |
+        // | ITERATING DATA |
         //############################################################################//
 
     public:
-
-        // This is verbose
-        #define FOR_EACH_INDEX(i) for (unsigned int i = 0; i < m_Indices.size(); ++i)
-        #define GET_INDICES(j, k, l) unsigned int j = m_Indices[i], k = m_Indices[++i], l = m_Indices[++i]
 
         template<class Function>
-        void for_all_triangles(Function fn) {
-            FOR_EACH_INDEX(i) {
-                GET_INDICES(j, k, l);
-
-                auto x = ThreePointTuple{ m_Vertices[j], m_Vertices[k], m_Vertices[l] };
-                fn(x);
+        void for_each(Function fn) {
+            for (const auto& i : m_Indices) {
+                fn(m_Vertices[i.x], m_Normals[i.y], m_TextureCoords[i.z]);
             }
         }
 
         template<class Function>
-        void for_all_components(Function fn) {
-            FOR_EACH_INDEX(i) {
-                GET_INDICES(j, k, l);
+        void for_each_vertex(Function fn) {
+            for (const auto& i : m_Indices) fn(m_Vertices[i.x]);
+        }
 
-                auto vertices = ThreePointTuple{ m_Vertices[j], m_Vertices[k], m_Vertices[l] };
-                auto normals  = ThreePointTuple{ m_Vertices[j], m_Vertices[k], m_Vertices[l] };
-                fn(vertices, normals);
+        template<class Function>
+        void for_each_tri(Function fn) {
+            ASSERT(
+                    m_Indices.size() % 3 == 0 && m_Vertices.size() % 3 == 0,
+                    "Number of vertices or indices is not a multiple of 3..."
+            );
+            for (Index i = 0; i < m_Indices.size();) {
+                const auto& j = m_Vertices[i], k = m_Vertices[++i], l = m_Vertices[++i];
+                fn(j, k, l);
             }
         }
 
         //############################################################################//
-        // | UTILITY FUNCTIONS |
+        // | UTILITY |
         //############################################################################//
 
     public:
-
         std::string to_string() const {
             return std::format(
-                    "( ID={}, Vertices={}, Tex-Coords={}, Normals={}, Indices={} )",
+                    "( ID={}, Vertices={}, Normals={}, Tex-Coords={}, Indices={} )",
                     m_Id,
                     m_Vertices.size(),
                     m_TextureCoords.size(),
                     m_Normals.size(),
                     m_Indices.size()
             );
+        }
+
+        void clear() {
+            m_Vertices.clear();
+            m_Normals.clear();
+            m_TextureCoords.clear();
+            m_Indices.clear();
+        }
+
+        std::vector<glm::vec3> flatten_vertex_data() {
+            std::vector<glm::vec3> vertices{};
+            for_each([&vertices](
+                    const glm::vec3& vertex,
+                    const glm::vec3& normal,
+                    const glm::vec3& texture
+            ) {
+                vertices.insert(vertices.end(), { vertex, normal, texture });
+            });
+            return vertices;
         }
     };
 
