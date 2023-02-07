@@ -267,8 +267,8 @@ namespace app {
     }
 
     template<class T,
-            BufferContainerType Type = BufferContainerType::ARRAY,
-            BufferAllocUsage Usage = BufferAllocUsage::STATIC_DRAW
+            BufferContainerType Type,
+            BufferAllocUsage Usage
     >
     static SimpleBuffer init_buffer(const T* data, const size_t size) {
         SimpleBuffer b{ Type };
@@ -277,6 +277,21 @@ namespace app {
         b.set_data<T, Usage>(data, size);
         b.unbind();
         return b;
+    }
+
+    template<class T, BufferAllocUsage Usage = BufferAllocUsage::STATIC_DRAW>
+    static SimpleBuffer init_array_buffer(const T* data, const size_t size) {
+        return init_buffer<T, BufferContainerType::ARRAY, Usage>(data, size);
+    }
+
+    template<class T, BufferAllocUsage Usage = BufferAllocUsage::STATIC_DRAW>
+    static SimpleBuffer init_uniform_buffer(const T* data, const size_t size) {
+        return init_buffer<T, BufferContainerType::UNIFORM_BUFFER, Usage>(data, size);
+    }
+
+    template<class T, BufferAllocUsage Usage = BufferAllocUsage::STATIC_DRAW>
+    static SimpleBuffer init_texture_buffer(const T* data, const size_t size) {
+        return init_buffer<T, BufferContainerType::TEXTURE_BUFFER, Usage>(data, size);
     }
 
     //############################################################################//
@@ -393,10 +408,10 @@ namespace app {
         MatrixAttributePointer(
                 GLuint index,
                 GLint divisor = 1,
-                GLboolean normalise = GL_FALSE
+                GLint normalise = GL_FALSE
         ) : AbstractAttributePointer(index),
             divisor(divisor),
-            normalise(normalise) {
+            normalise(normalise == GL_TRUE) {
         }
 
         std::string to_string() const {
@@ -447,7 +462,101 @@ namespace app {
     using FloatMat4Attrib = MatrixAttributePointer<4, 4, GLfloat, PrimitiveType::FLOAT>;
     using IntMat4Attrib = MatrixAttributePointer<4, 4, GLint, PrimitiveType::INT>;
     using ByteMat4Attrib = MatrixAttributePointer<4, 4, GLbyte, PrimitiveType::BYTE>;
-    using FloatMat3Attrib = MatrixAttributePointer<3,3, GLfloat, PrimitiveType::FLOAT>;
+    using FloatMat3Attrib = MatrixAttributePointer<3, 3, GLfloat, PrimitiveType::FLOAT>;
+
+    //############################################################################//
+    // | VERTEX ATTRIBUTE LAYOUT |
+    //############################################################################//
+
+    template<class T>
+    size_t static constexpr get_gl_size() {
+
+        if constexpr (std::is_same<glm::vec1, T>()) {
+            return 1;
+        } else if constexpr (std::is_same<glm::vec2, T>()) {
+            return 2;
+        } else if constexpr (std::is_same<glm::vec3, T>()) {
+            return 3;
+        } else if constexpr (std::is_same<glm::vec4, T>()) {
+            return 4;
+        } else {
+            static_assert(always_false<T>(), "Unknown Component count for T...");
+        }
+    }
+
+    template<
+            class T,
+            PrimitiveType GLType,
+            class... Types
+    >
+    struct VertexLayout : AbstractAttributePointer {
+        GLboolean normalise;
+
+        VertexLayout(
+                const GLuint index,
+                GLint normalise = GL_FALSE
+        ) : AbstractAttributePointer(index),
+            normalise(normalise) {};
+
+        template<
+                typename Head,
+                typename... Others
+        >
+        constexpr void create_attrib(
+                GLuint& index,
+                size_t stride,
+                size_t& total_size
+        ) {
+            size_t size = get_gl_size<Head>();
+
+            HINFO("[VERTEX_LAYOUT]", " # {}, {}, {:#06x}, {}, {}, {:p}",
+                  index,
+                  size,
+                  static_cast<GLenum>(GLType),
+                  normalise == GL_TRUE,
+                  stride,
+                  (void*) (total_size * sizeof(T))
+            );
+
+            GL(glVertexAttribPointer(
+                    index,
+                    size,
+                    static_cast<GLenum>(GLType),
+                    normalise,
+                    stride,
+                    (void*) (total_size * sizeof(T))
+            ));
+
+            index++;
+            total_size += size;
+
+            // ((create_attrib<Others>(index + 1, stride, total_size + size)), ...);
+        }
+
+        virtual void create() override {
+            GLuint index  = 0;
+            size_t offset = 0;
+            (create_attrib<Types>(index, (sizeof(Types) + ...), offset), ...);
+        }
+
+        virtual void enable() override {
+            for (size_t i = 0; i < sizeof...(Types); ++i) {
+                GL(glEnableVertexAttribArray(index + i));
+                ++i;
+            }
+        }
+
+        virtual void disable() override {
+            for (size_t i = 0; i < sizeof...(Types); ++i) {
+                GL(glDisableVertexAttribArray(index + i));
+                ++i;
+            }
+        }
+
+    };
+
+    using FloatAttribLayout333 = VertexLayout<float, PrimitiveType::FLOAT, glm::vec3, glm::vec3, glm::vec3>;
+    using FloatAttribLayout332 = VertexLayout<float, PrimitiveType::FLOAT, glm::vec3, glm::vec3, glm::vec2>;
 
     //############################################################################//
     // | BUFFER & ATTRIBUTE TOGGLES |
@@ -604,10 +713,12 @@ namespace app {
             assert_bound<true>();
             HINFO("[VAO_ADD_BUFFER]", " # Adding Buffer: {}", buffer.to_string());
 
+            if (!buffer.is_bound()) buffer.bind();
             std::unique_ptr<AbstractAttributePointer> new_attrib = std::make_unique<T>(
                     T{ std::forward<Args>(args)... }
             );
             new_attrib->create();
+            buffer.unbind();
 
             m_State->buffers.emplace_back(buffer, std::move(new_attrib));
         }
@@ -661,6 +772,8 @@ namespace app {
     public:
 
         Mutable3DModel() : m_Id(s_MeshCount++) {}
+        Mutable3DModel(const Mutable3DModel&) = delete;
+        Mutable3DModel(Mutable3DModel&&) = delete;
 
         ~Mutable3DModel() {
             --s_MeshCount;
@@ -676,12 +789,30 @@ namespace app {
             return m_Vertices;
         }
 
+        size_t get_vertex_count() const {
+            return m_Vertices.size();
+        }
+
+        const glm::vec3& get_vertex(size_t index) const {
+            ASSERT(index < m_Vertices.size(), "Index {}..{} out of bounds...", index, m_Vertices.size());
+            return m_Vertices.at(index);
+        }
+
         const glm::vec3* get_vertices_data() const {
             return m_Vertices.data();
         }
 
         const Vec3Vector& get_normals() const {
             return m_Normals;
+        }
+
+        size_t get_normals_count() const {
+            return m_Normals.size();
+        }
+
+        const glm::vec3& get_normal(size_t index) const {
+            ASSERT(index < m_Normals.size(), "Index {}..{} out of bounds...", index, m_Normals.size());
+            return m_Normals.at(index);
         }
 
         const glm::vec3* get_normals_data() const {
@@ -692,34 +823,37 @@ namespace app {
             return m_TextureCoords;
         }
 
+        size_t get_tex_coords_count() const {
+            return m_TextureCoords.size();
+        }
+
+        const glm::vec3& get_tex_coord(size_t index) const {
+            ASSERT(index < m_TextureCoords.size(), "Index {}..{} out of bounds...", index, m_TextureCoords.size());
+            return m_TextureCoords.at(index);
+        }
+
         const glm::vec3* get_texture_coords_data() const {
             return m_TextureCoords.data();
         }
 
-        void add_vertex(
-                const glm::vec3& vertex,
-                const glm::vec3& normal,
-                const glm::vec3& tex_coord
-        ) {
-            m_Vertices.push_back(vertex);
-            m_Vertices.push_back(normal);
-            m_Vertices.push_back(tex_coord);
+        void add_vert(float x, float y, float z) {
+            m_Vertices.emplace_back(x, y, z);
         }
 
-        void add_vert(const glm::vec3& vert) {
-            m_Vertices.push_back(vert);
+        void add_normal(float x, float y, float z) {
+            m_Normals.emplace_back(x, y, z);
         }
 
-        void add_normal(const glm::vec3& vert) {
-            m_Normals.push_back(vert);
+        void add_tex_pos(float x, float y, float z) {
+            m_TextureCoords.emplace_back(x, y, z);
         }
 
-        void add_tex_pos(const glm::vec3& vert) {
-            m_TextureCoords.push_back(vert);
+        void add_vertex_index(Index i, Index j, Index k) {
+            m_Indices.emplace_back(i, j, k);
         }
 
-        void add_vertex_index(const glm::ivec3& indices) {
-            m_Indices.push_back(indices);
+        size_t get_index_count() const {
+            return m_Indices.size();
         }
 
         //############################################################################//
@@ -731,7 +865,7 @@ namespace app {
         template<class Function>
         void for_each(Function fn) {
             for (const auto& i : m_Indices) {
-                fn(m_Vertices[i.x], m_Normals[i.y], m_TextureCoords[i.z]);
+                fn(get_vertex(i.x), get_normal(i.y), get_tex_coord(i.z));
             }
         }
 
@@ -749,6 +883,29 @@ namespace app {
             for (Index i = 0; i < m_Indices.size();) {
                 const auto& j = m_Vertices[i], k = m_Vertices[++i], l = m_Vertices[++i];
                 fn(j, k, l);
+            }
+        }
+
+        template<class Function>
+        void for_each_index(Function fn) {
+            for (const auto& index : m_Indices) {
+
+                if constexpr (std::is_invocable<Function, Index>()) {
+                    fn(index.x);
+
+                } else if constexpr (std::is_invocable<Function, Index, Index>()) {
+                    fn(index.x, index.y);
+
+                } else if constexpr (std::is_invocable<Function, Index, Index, Index>()) {
+                    fn(index.x, index.y, index.z);
+
+                } else {
+                    static_assert(
+                            always_false<Function>(),
+                            "Function template must have the signature"
+                            " (int) or (int, int) or (int, int, int)"
+                    );
+                }
             }
         }
 
@@ -773,6 +930,14 @@ namespace app {
             m_Normals.clear();
             m_TextureCoords.clear();
             m_Indices.clear();
+        }
+
+        std::vector<Index> get_flat_indices() {
+            std::vector<Index> indices{};
+            for_each_index([&indices](Index i) {
+                indices.push_back(i);
+            });
+            return indices;
         }
 
         std::vector<glm::vec3> flatten_vertex_data() {

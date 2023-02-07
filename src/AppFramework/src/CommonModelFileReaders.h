@@ -27,34 +27,52 @@ namespace app::model_file {
         using Iter = std::istreambuf_iterator<char>;
         std::stringstream file_content_stream{ std::string(Iter(file_stream), Iter()) };
 
-        std::string line{};
+        char line_buffer[256]{};
         while (!file_content_stream.eof()) {
-            std::getline(file_content_stream, line);
-            std::stringstream line_stream{ line };
+            file_content_stream.getline(line_buffer, 256);
+            std::stringstream line_stream;
+            line_stream << line_buffer;
+            line_stream.unsetf(std::ios_base::skipws);
 
             char id[2]{};
-            line_stream >> id;
+            line_stream >> id[0] >> id[1];
+            line_stream.setf(std::ios_base::skipws);
 
+            // Vertex
             if (id[0] == 'v') {
-                glm::vec3 vec{};
-                line_stream >> vec.x >> vec.y >> vec.z;
+                float x = 0.0, y = 0.0, z = 0.0;
+                if (!(line_stream >> x >> y >> z)) line_stream.clear();
+
                 switch (id[1]) {
                     case ' ': {
-                        model.add_vert(vec);
+                        model.add_vert(x, y, z);
+                        break;
                     }
                     case 'n': {
-                        model.add_normal(vec);
+                        model.add_normal(x, y, z);
+                        break;
                     }
                     case 't': {
-                        model.add_tex_pos(vec);
+                        model.add_tex_pos(x, y, z);
+                        break;
                     }
                 }
 
                 // Face (Assuming triangular mesh) Format: 'file_stream v/n/vt'
             } else if (id[0] == 'f' && id[1] == ' ') {
-                glm::ivec3 vec{};
-                char       dump{};
-                line_stream >> vec.x >> dump >> vec.y >> dump >> vec.z;
+                Index j = 0, k = 0, l = 0;
+                char  dump{};
+
+                line_stream >> std::skipws;
+                for (int i = 0; i < 3; ++i) {
+                    if (line_stream >> j >> dump >> k >> dump >> l) {
+                        // f v/vt/vn (http://www.martinreddy.net/gfx/3d/OBJ.spec)
+                        model.add_vertex_index(j - 1, l - 1, k - 1);
+                    } else {
+                        HWARN("[OBJ_READ]", " # Reading Indices from {} may have failed...", file);
+                        line_stream.clear();
+                    }
+                }
             }
         }
         file_stream.close();

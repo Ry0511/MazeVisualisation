@@ -17,6 +17,15 @@ namespace app {
 
     class Shader {
 
+    public:
+        inline static const std::string s_ProjectionMatrixUniform = "u_ProjectionMatrix";
+        inline static const std::string s_ViewMatrixUniform       = "u_ViewMatrix";
+        inline static const std::string s_ModelMatrixUniform      = "u_ModelMatrix";
+        inline static const std::string s_ThetaUniform            = "u_Theta";
+        inline static const std::string s_TranslateMatrixUniform  = "u_TranslateMatrix";
+        inline static const std::string s_RotateMatrixUniform     = "u_RotateMatrix";
+        inline static const std::string s_ScaleMatrixUniform      = "u_ScaleMatrix";
+
     private:
         inline static GLuint s_EnabledShaderProgram = 0;
 
@@ -44,44 +53,12 @@ namespace app {
         }
 
     public:
-        explicit Shader(
-                const std::string& vertex,
-                const std::string& fragment
-        ) {
-
-            // Source Code
-            const char* v_source = vertex.c_str();
-            const char* f_source = fragment.c_str();
-
-            // Compile Shaders
-            INFO("Compiling Vertex Shader.");
-            GLint v_shader = compile_shader(v_source, GL_VERTEX_SHADER);
-            INFO("Compiling Fragment Shader.");
-            GLint f_shader = compile_shader(f_source, GL_FRAGMENT_SHADER);
-
-            // Create the Shader Program
-            m_ShaderProgram = GL(glCreateProgram());
-            GL(glAttachShader(m_ShaderProgram, v_shader));
-            GL(glAttachShader(m_ShaderProgram, f_shader));
-            GL(glLinkProgram(m_ShaderProgram));
-
-            // Link Programme
-            GLint link_state = 0;
-            GL(glGetProgramiv(m_ShaderProgram, GL_LINK_STATUS, &link_state));
-            if (!link_state) {
-                char buffer[512]{};
-                GL(glGetProgramInfoLog(m_ShaderProgram, 512, nullptr, buffer));
-                ERR("Shader Program Linker Error. # {}", buffer);
-                PANIC;
-            }
-
-            // Delete these as they're linked
-            GL(glDeleteShader(v_shader));
-            GL(glDeleteShader(f_shader));
-        }
+        Shader() = default;
+        Shader(const Shader&) = delete;
+        Shader(Shader&&) = delete;
 
         ~Shader() {
-            INFO("{:<20} # {}", "Destroying Shader", m_ShaderProgram);
+            HINFO("[SHDAER_DESTROY]", " # Destroying Shader '{}'", m_ShaderProgram);
             GL(glDeleteProgram(m_ShaderProgram));
         }
 
@@ -108,6 +85,60 @@ namespace app {
 
     public:
 
+        void compile_and_link(
+                const std::string& vertex_shader,
+                const std::string& fragment_shader
+        ) {
+            if (is_init()) {
+                HERR(
+                        "[SHADER_LINK]",
+                        " # Shader Program '{}' has already been compiled and linked...",
+                        m_ShaderProgram
+                );
+                throw std::exception();
+            }
+
+            // Source Code
+            const char* v_source = vertex_shader.c_str();
+            const char* f_source = fragment_shader.c_str();
+
+            // Compile Shaders
+            INFO("Compiling Vertex Shader.");
+            GLint v_shader = compile_shader(read_file_to_string(v_source).c_str(), GL_VERTEX_SHADER);
+            INFO("Compiling Fragment Shader.");
+            GLint f_shader = compile_shader(read_file_to_string(f_source).c_str(), GL_FRAGMENT_SHADER);
+
+            // Create the Shader Program
+            m_ShaderProgram = GL(glCreateProgram());
+            GL(glAttachShader(m_ShaderProgram, v_shader));
+            GL(glAttachShader(m_ShaderProgram, f_shader));
+            GL(glLinkProgram(m_ShaderProgram));
+
+            // Link Programme
+            GLint link_state = 0;
+            GL(glGetProgramiv(m_ShaderProgram, GL_LINK_STATUS, &link_state));
+            if (!link_state) {
+                char buffer[512]{};
+                GL(glGetProgramInfoLog(m_ShaderProgram, 512, nullptr, buffer));
+                ERR("Shader Program Linker Error. # {}", buffer);
+                PANIC;
+            }
+
+            // Delete these as they're linked
+            GL(glDeleteShader(v_shader));
+            GL(glDeleteShader(f_shader));
+        }
+
+        //############################################################################//
+        // | ENABLING SHADER |
+        //############################################################################//
+
+    public:
+
+        bool is_init() const {
+            return m_ShaderProgram != 0;
+        }
+
         void assert_enabled() const {
             ASSERT(is_enabled(), "Shader is not enabled.");
         }
@@ -125,6 +156,10 @@ namespace app {
             GL(glUseProgram(0));
             s_EnabledShaderProgram = 0;
         }
+
+        //############################################################################//
+        // | ALL UNIFORMS |
+        //############################################################################//
 
     public:
 
