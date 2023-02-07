@@ -83,7 +83,7 @@ namespace maze {
         app::Vao            m_CubeVao     = {};
         app::Shader         m_CubeShader  = {};
         size_t              m_EntityCount = 0;
-        size_t              m_TriCount    = 0;
+        size_t              m_VertexCount = 0;
         float               m_Theta       = 0.0F;
         glm::mat4           m_Rotate      = glm::mat4{ 1 };
         glm::mat4           m_Scale       = glm::scale(glm::mat4{ 1 }, glm::vec3{ 0.25 });
@@ -107,10 +107,13 @@ namespace maze {
             m_CubeModel.clear();
             app::model_file::read_wavefront_file(s_TexturedCube, m_CubeModel);
 
+            // TODO: Flatten vertex data does not require an index buffer.
             // Stride = [sizeof(glm::vec3) * 3] (Position, Normal, Texture)
             std::vector<glm::vec3>  vertex_data = m_CubeModel.flatten_vertex_data();
-            std::vector<app::Index> indices     = m_CubeModel.get_flat_indices();
-            m_TriCount = indices.size();
+            std::vector<app::Index> indices{};
+            for (size_t i = 0; i < vertex_data.size(); ++i) indices.push_back(i);
+//            std::vector<app::Index> indices     = m_CubeModel.get_flat_indices();
+            m_VertexCount = vertex_data.size();
 
             m_CubeVao.init();
             m_CubeVao.bind();
@@ -174,7 +177,7 @@ namespace maze {
             // app->draw_elements_instanced(app::DrawMode::TRIANGLES, 36, m_EntityCount);
             app->draw_elements_instanced(
                     app::DrawMode::TRIANGLES,
-                    m_TriCount,
+                    m_VertexCount,
                     m_EntityCount
             );
 

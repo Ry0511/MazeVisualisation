@@ -13,15 +13,19 @@ uniform mat4 u_RotateMatrix;
 uniform mat4 u_ScaleMatrix;
 
 void main() {
-    colour = v_colour;
-
+    if ((v_colour.x + v_colour.y + v_colour.z) <= 0) {
+        colour = vec3(1.0, 0.0, 1.0);
+    } else {
+        colour = v_colour;
+    }
     mat4 translate = mat4(
         vec4(1, 0, 0, 0),
         vec4(0, 1, 0, 0),
         vec4(0, 0, 1, 0),
         vec4(v_pos, 1)
     );
-    mat4 model = translate * u_RotateMatrix * u_ScaleMatrix;
+    mat4 model = u_ScaleMatrix * u_RotateMatrix * translate;
+    // mat4 model = translate * u_RotateMatrix * u_ScaleMatrix;
 
     gl_Position = u_ProjectionMatrix * u_ViewMatrix * model * vec4(v_pos, 1.0);
 }
