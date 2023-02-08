@@ -16,6 +16,10 @@
 
 namespace app::model_file {
 
+    //############################################################################//
+    // | WAVEFRONT (.OBJ) | SOURCE: http://www.martinreddy.net/gfx/3d/OBJ.spec
+    //############################################################################//
+
     static void read_wavefront_file(const std::string& file, Mutable3DModel& model) {
         std::ifstream file_stream(file);
 
@@ -66,7 +70,7 @@ namespace app::model_file {
                 line_stream >> std::skipws;
                 for (int i = 0; i < 3; ++i) {
                     if (line_stream >> j >> dump >> k >> dump >> l) {
-                        // f v/vt/vn (http://www.martinreddy.net/gfx/3d/OBJ.spec)
+                        // f v/vt/vn
                         model.add_vertex_index(j - 1, l - 1, k - 1);
                     } else {
                         HWARN("[OBJ_READ]", " # Reading Indices from {} may have failed...", file);
