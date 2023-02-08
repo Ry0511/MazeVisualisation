@@ -14,4 +14,4 @@ add_executable(MazeVisualisation ${MazeVisualisation_HEADER_FILES} ${MazeVisuali
 
 target_link_libraries(${PROJECT_NAME} PRIVATE AppFramework)
 
-file(COPY Res/Shaders DESTINATION ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/Res)
+file(COPY Res DESTINATION ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})

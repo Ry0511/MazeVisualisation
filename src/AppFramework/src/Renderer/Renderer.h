@@ -40,6 +40,13 @@ namespace app {
     public:
         void draw_buffer(DrawMode mode, GLsizei first, GLsizei count);
 
+        void draw_buffer_instanced(
+                DrawMode mode,
+                GLsizei first,
+                GLsizei count,
+                GLsizei instance_count
+        );
+
         void draw_elements(
                 DrawMode mode,
                 GLsizei count,

@@ -7,11 +7,13 @@
 
 #include "Renderer/Shader.h"
 #include "Renderer/StandardComponents.h"
+#include "CommonModelFileReaders.h"
 
 namespace maze {
 
-    using namespace app;
-    using namespace components;
+    //############################################################################//
+    // | ORIGINAL CUBE VERTEX DATA |
+    //############################################################################//
 
     namespace cube_obj {
         static constexpr std::array<float, 24> s_VertexPositions = {
@@ -56,63 +58,135 @@ namespace maze {
         };
     }
 
-    struct Cube {
+    //############################################################################//
+    // | NAMESPACES & ALIAS'S |
+    //############################################################################//
 
-    };
+    using namespace app;
+    using namespace components;
+    struct Cube {};
+
+    //############################################################################//
+    // | CUBE MANAGER CLASS |
+    //############################################################################//
 
     class CubeManager {
 
     private:
-        app::Vao  m_CubeVao;
-        float     m_Theta        = 0.0F;
-        size_t    m_EntityCount  = 0;
-        glm::vec3 m_GlobalRotate = glm::vec3{ 0 };
-        glm::mat4 m_Rotate       = glm::mat4{ 1 };
-        glm::mat4 m_Scale        = glm::scale(glm::mat4{ 1 }, glm::vec3{ 0.25 });
+        inline static std::string s_CubeObjFile        = "Res/Models/Cube.obj";
+        inline static std::string s_TexturedCube       = "Res/Models/TexturedCube.obj";
+        inline static std::string s_CubeVertexShader   = "Res/Shaders/MazeVertexShader.glsl";
+        inline static std::string s_CubeFragmentShader = "Res/Shaders/FragmentShader.glsl";
+
+    private:
+        app::Mutable3DModel m_CubeModel   = {};
+        app::Vao            m_CubeVao     = {};
+        app::Shader         m_CubeShader  = {};
+        size_t              m_EntityCount = 0;
+        size_t              m_VertexCount = 0;
+        float               m_Theta       = 0.0F;
+        glm::mat4           m_Rotate      = glm::mat4{ 1 };
+        glm::mat4           m_Scale       = glm::scale(glm::mat4{ 1 }, glm::vec3{ 0.25 });
 
     public:
+        CubeManager() = default;
+        CubeManager(const CubeManager&) = delete;
+        CubeManager(CubeManager&&) = delete;
 
-        CubeManager(app::Vao vao) : m_CubeVao(vao) {
-            INFO("[CUBE_MAN_CREATE]");
-        };
+        //############################################################################//
+        // | INITIALISE |
+        //############################################################################//
 
     public:
         void init(app::Application* app) {
 
-            m_CubeVao.bind_all();
-            auto& [buffer, attrib] = m_CubeVao.get_buffer(2);
+            // Load Shader
+            m_CubeShader.compile_and_link(s_CubeVertexShader, s_CubeFragmentShader);
 
-            size_t i = 0;
+            // Load Model
+            m_CubeModel.clear();
+            app::model_file::read_wavefront_file(s_TexturedCube, m_CubeModel);
+            std::vector<glm::vec3> vertex_data = m_CubeModel.flatten_vertex_data();
+            m_VertexCount = vertex_data.size();
 
-            std::vector<glm::vec3> positions{};
-            buffer.bind();
-            app->get_group<Cube, Position>().each([&](Position& pos) {
-                buffer.set_range<glm::vec3>(i, &pos, 1);
-                ++i;
-                m_EntityCount = i;
+            m_CubeVao.init();
+            m_CubeVao.bind();
+
+            // Vertex: Position, Normal, Texture
+            m_CubeVao.add_buffer<FloatAttribLayout333>(
+                    init_array_buffer<glm::vec3>(
+                            vertex_data.data(),
+                            vertex_data.size()
+                    ),
+                    0U
+            );
+
+            // Colours
+            m_CubeVao.add_buffer<Vec3Attribute>(
+                    init_array_buffer(
+                            maze::cube_obj::s_Colours.data(),
+                            maze::cube_obj::s_Colours.size()
+                    ),
+                    3U
+            );
+
+            // Translates
+            std::vector<glm::vec3> translates{};
+            app->get_group<Cube, Position>().each([&](const glm::vec3& pos) {
+                translates.push_back(pos);
+                ++m_EntityCount;
             });
 
-            m_CubeVao.unbind();
+            // Add Translate Buffer
+            m_CubeVao.add_buffer<Vec3Attribute>(
+                    init_array_buffer(translates.data(), translates.size()),
+                    4U, 1
+            );
 
-            HINFO("[CUBE_MAN_INIT]", " # Cube Count={}", m_EntityCount);
+            m_CubeVao.unbind();
         }
 
-         void update(float delta, app::Application* app)  {
+        //############################################################################//
+        // | UPDATE |
+        //############################################################################//
+
+        void update(float delta, app::Application* app) {
             m_Theta += delta;
             float t = m_Theta;
-            m_GlobalRotate = glm::vec3{ t * 1.1, t * 0.85, t * 1.65 };
 
-            m_Rotate = glm::rotate(glm::mat4{ 1 }, m_GlobalRotate.x, { 1, 0, 0 })
-                       * glm::rotate(glm::mat4{ 1 }, m_GlobalRotate.y, { 0, 1, 0 })
-                       * glm::rotate(glm::mat4{ 1 }, m_GlobalRotate.z, { 0, 0, 1 });
+            m_Rotate = glm::rotate(glm::mat4{ 1 }, t * 1.1F, { 1, 0, 0 })
+                       * glm::rotate(glm::mat4{ 1 }, t * 0.85F, { 0, 1, 0 })
+                       * glm::rotate(glm::mat4{ 1 }, t * 1.65F, { 0, 0, 1 });
         }
 
-        void render(app::Application* app, app::Shader* shader)  {
+        //############################################################################//
+        // | RENDER |
+        //############################################################################//
+
+        void render(app::Application* app) {
+
+            // Enable
+            m_CubeShader.enable();
             m_CubeVao.bind_all();
-            shader->set_uniform("u_RotateMatrix", m_Rotate);
-            shader->set_uniform("u_ScaleMatrix", m_Scale);
-            app->draw_elements_instanced(app::DrawMode::TRIANGLES, 36, m_EntityCount);
+
+            // Push Uniforms
+            m_CubeShader.set_uniform(Shader::s_ProjectionMatrixUniform, app->get_proj_matrix());
+            m_CubeShader.set_uniform(Shader::s_ViewMatrixUniform, app->get_camera_matrix());
+            m_CubeShader.set_uniform(Shader::s_RotateMatrixUniform, m_Rotate);
+            m_CubeShader.set_uniform(Shader::s_ScaleMatrixUniform, m_Scale);
+
+            // Instance Render
+            // app->draw_elements_instanced(app::DrawMode::TRIANGLES, 36, m_EntityCount);
+            app->draw_buffer_instanced(
+                    app::DrawMode::TRIANGLES,
+                    0,
+                    m_VertexCount,
+                    m_EntityCount
+            );
+
+            // Disable
             m_CubeVao.unbind();
+            m_CubeShader.disable();
         }
     };
 }

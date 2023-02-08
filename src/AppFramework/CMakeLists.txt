@@ -12,7 +12,10 @@ set(AppFramework_HEADER_FILES
         src/Renderer/GLUtil.h
         src/Renderer/Shader.h
         src/Camera3D.h
-        src/Renderer/VertexObjectBinding.h src/Renderer/EntityComponentSystem.h src/Renderer/StandardComponents.h)
+        src/Renderer/VertexObjectBinding.h
+        src/Renderer/EntityComponentSystem.h
+        src/Renderer/StandardComponents.h
+        src/CommonModelFileReaders.h)
 
 set(AppFramework_SOURCE_FILES
         src/Window.cpp
