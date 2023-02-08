@@ -941,6 +941,8 @@ namespace app {
         }
 
         std::vector<glm::vec3> flatten_vertex_data() {
+            // Note: this collapses the vertex data entirely, that is,
+            // 0...size is all the vertex data, and it requires no indexing.
             std::vector<glm::vec3> vertices{};
             for_each([&vertices](
                     const glm::vec3& vertex,

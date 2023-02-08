@@ -37,6 +37,20 @@ namespace app {
         GL(glDrawArrays(static_cast<GLenum>(mode), first, count));
     }
 
+    void Renderer::draw_buffer_instanced(
+            DrawMode mode,
+            GLsizei first,
+            GLsizei count,
+            GLsizei instance_count
+    ) {
+        GL(glDrawArraysInstanced(
+                static_cast<GLenum>(mode),
+                first,
+                count,
+                instance_count
+        ));
+    }
+
     void Renderer::draw_elements(
             DrawMode mode,
             GLsizei count,

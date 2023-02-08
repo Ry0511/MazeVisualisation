@@ -106,13 +106,7 @@ namespace maze {
             // Load Model
             m_CubeModel.clear();
             app::model_file::read_wavefront_file(s_TexturedCube, m_CubeModel);
-
-            // TODO: Flatten vertex data does not require an index buffer.
-            // Stride = [sizeof(glm::vec3) * 3] (Position, Normal, Texture)
-            std::vector<glm::vec3>  vertex_data = m_CubeModel.flatten_vertex_data();
-            std::vector<app::Index> indices{};
-            for (size_t i = 0; i < vertex_data.size(); ++i) indices.push_back(i);
-//            std::vector<app::Index> indices     = m_CubeModel.get_flat_indices();
+            std::vector<glm::vec3> vertex_data = m_CubeModel.flatten_vertex_data();
             m_VertexCount = vertex_data.size();
 
             m_CubeVao.init();
@@ -126,7 +120,6 @@ namespace maze {
                     ),
                     0U
             );
-            m_CubeVao.set_index_buffer(indices.data(), indices.size());
 
             // Colours
             m_CubeVao.add_buffer<Vec3Attribute>(
@@ -137,11 +130,20 @@ namespace maze {
                     3U
             );
 
-            m_CubeVao.unbind();
-
+            // Translates
+            std::vector<glm::vec3> translates{};
             app->get_group<Cube, Position>().each([&](const glm::vec3& pos) {
+                translates.push_back(pos);
                 ++m_EntityCount;
             });
+
+            // Add Translate Buffer
+            m_CubeVao.add_buffer<Vec3Attribute>(
+                    init_array_buffer(translates.data(), translates.size()),
+                    4U, 1
+            );
+
+            m_CubeVao.unbind();
         }
 
         //############################################################################//
@@ -175,8 +177,9 @@ namespace maze {
 
             // Instance Render
             // app->draw_elements_instanced(app::DrawMode::TRIANGLES, 36, m_EntityCount);
-            app->draw_elements_instanced(
+            app->draw_buffer_instanced(
                     app::DrawMode::TRIANGLES,
+                    0,
                     m_VertexCount,
                     m_EntityCount
             );
