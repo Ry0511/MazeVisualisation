@@ -1,0 +1,356 @@
+//
+// Created by -Ry on 08/02/2023.
+//
+
+#ifndef MAZEVISUALISATION_MAZECONTROLLER_H
+#define MAZEVISUALISATION_MAZECONTROLLER_H
+
+#include "Logging.h"
+
+#include <glm/glm.hpp>
+
+#include <vector>
+#include <cstdint>
+#include <random>
+
+namespace maze {
+
+    // TODO: Implement this.
+
+    //############################################################################//
+    // | GLOBALLY USED ALIAS |
+    //############################################################################//
+
+    using MazeCell = uint32_t;
+    using MazeSizeType = unsigned short;
+    using Distribution = std::uniform_int_distribution<std::mt19937::result_type>;
+
+    //############################################################################//
+    // | MAZE CELL FLAGS |
+    //############################################################################//
+
+    enum class MazeCellFlags : MazeCell {
+        // Cell Type // 1, 2, 4, 8, ...
+        EMPTY          = 0b1,
+        WALL           = 0b10,
+        DOOR           = 0b100,
+        // Solid Colours
+        RED            = 0b1000,
+        GREEN          = 0b10000,
+        BLUE           = 0b100000,
+        // Transition Effects
+        FADE_NEAR      = 0b1000000,
+        TRANSLATE_UP   = 0b10000000,
+        TRANSLATE_DOWN = 0b100000000,
+        SCALE_OUT      = 0b1000000000,
+        ROTATE         = 0b10000000000,
+        // Texture Type
+        BRICK          = 0b100000000000,
+        STONE          = 0b1000000000000,
+        CHECKERED      = 0b10000000000000,
+        // State Flags
+        MODIFIED       = 0b100000000000000
+    };
+
+    using CellFlag = MazeCellFlags;
+
+    template<CellFlag Flag>
+    static inline constexpr bool check_flag(MazeCell cell) {
+        return (cell & static_cast<MazeCell>(Flag)) != 0;
+    }
+
+    template<CellFlag... Flags>
+    static inline constexpr bool check_flags(MazeCell cell) {
+        static_assert(sizeof...(Flags) != 0, "Atleast one flag is required...");
+        return (check_flag<Flags>(cell) && ...);
+    }
+
+    template<CellFlag... Flags>
+    static inline constexpr MazeCell combine_flags() {
+        if (sizeof...(Flags) == 0U) return 0U;
+        return (static_cast<MazeCell>(Flags) | ... | 0U);
+    }
+
+    //############################################################################//
+    // | MUTABLE MAZE TYPE |
+    //############################################################################//
+
+    class MutableMaze {
+
+    private:
+        size_t                m_Width;
+        size_t                m_Height;
+        Distribution          m_WidthDistribution;
+        Distribution          m_HeightDistribution;
+        std::vector<MazeCell> m_MazeBuffer;
+
+        //############################################################################//
+        // | CONSTRUCTION |
+        //############################################################################//
+
+    public:
+        MutableMaze(
+                MazeSizeType width,
+                MazeSizeType height
+        ) : m_Width(width),
+            m_WidthDistribution(Distribution{ 0, width }),
+            m_Height(height),
+            m_HeightDistribution(Distribution{ 0, height }),
+            m_MazeBuffer(std::vector<MazeCell>(width * height)) {
+
+            if (m_MazeBuffer.size() == 0) {
+                HERR("[MUTABLE_MAZE]", " # Maze Size cannot be 0. ( {}*{} (0) )", width, height);
+                throw std::exception();
+            }
+
+            HINFO(
+                    "[MUTABLE_MAZE]", " # CREATE: {}x{} ({})",
+                    m_Width, m_Height, m_MazeBuffer.size()
+            );
+        }
+
+        MutableMaze(
+                const MutableMaze& maze
+        ) : m_MazeBuffer(maze.m_MazeBuffer),
+            m_Width(maze.m_Width),
+            m_Height(maze.m_Height) {
+            HINFO(
+                    "[MUTABLE_MAZE]", " # COPY: {}x{} ({})",
+                    m_Width, m_Height, m_MazeBuffer.size()
+            );
+        };
+
+        MutableMaze(
+                MutableMaze&& maze
+        ) : m_MazeBuffer(std::move(maze.m_MazeBuffer)),
+            m_Width(maze.m_Width),
+            m_Height(maze.m_Height) {
+            HINFO(
+                    "[MUTABLE_MAZE]", " # MOVE: {}x{} ({})",
+                    m_Width, m_Height, m_MazeBuffer.size()
+            );
+        };
+
+        //############################################################################//
+        // | GET DATA |
+        //############################################################################//
+
+    public:
+        const MazeCell* get_data() const {
+            return m_MazeBuffer.data();
+        }
+
+        short get_width() const {
+            return m_Width;
+        }
+
+        const Distribution& get_width_distribution() const {
+            return m_WidthDistribution;
+        }
+
+        short get_height() const {
+            return m_Height;
+        }
+
+        const Distribution& get_height_distribution() const {
+            return m_HeightDistribution;
+        }
+
+        size_t get_cell_count() const {
+            return m_MazeBuffer.size();
+        }
+
+        MazeCell& get_cell(size_t row, size_t col) {
+            check_index(row, col);
+            return m_MazeBuffer[(row * m_Height) + col];
+        }
+
+        MazeCell get_cell(size_t row, size_t col) const {
+            check_index(row, col);
+            return m_MazeBuffer[(row * m_Height) + col];
+        }
+
+        template<CellFlag Flag>
+        void set_flag(size_t row, size_t col) {
+            get_cell(row, col) |= static_cast<MazeCell>(Flag);
+        }
+
+        template<CellFlag... Flags>
+        void set_flags(size_t row, size_t col) {
+            (set_flag<Flags>(row, col), ...);
+        }
+
+        template<CellFlag Flag>
+        void unset_flag(size_t row, size_t col) {
+            get_cell(row, col) |= ~static_cast<MazeCell>(Flag);
+        }
+
+        template<CellFlag... Flags>
+        void unset_flags(size_t row, size_t col) {
+            (unset_flag<Flags>(row, col), ...);
+        }
+
+        template<CellFlag Flag>
+        bool check_flag(size_t row, size_t col) const {
+            return (get_cell(row, col) & static_cast<MazeCell>(Flag)) != 0;
+        }
+
+        template<CellFlag... Flags>
+        bool check_flags(size_t row, size_t col) const {
+            return (check_flag<Flags>(row, col), ...);
+        }
+
+        //############################################################################//
+        // | UTILITY |
+        //############################################################################//
+
+    public:
+
+        bool is_inbounds(size_t row, size_t col) const {
+            return row < m_Height && col < m_Width;
+        }
+
+        void check_index(size_t row, size_t col) const {
+            if (!is_inbounds(row, col)) {
+                HERR(
+                        "[MUTABLE_MAZE]",
+                        " # Index: [{}][{}] is out of bounds.",
+                        row,
+                        col,
+                        m_MazeBuffer.size()
+                );
+                throw std::exception();
+            }
+        }
+    };
+
+    //############################################################################//
+    // | UTILITY CARDINAL WRAPPER |
+    //############################################################################//
+
+    enum class Cardinal : char {
+        NORTH = 'N',
+        EAST  = 'E',
+        SOUTH = 'S',
+        WEST  = 'W'
+    };
+
+    template<Cardinal Dir>
+    static constexpr std::pair<size_t, size_t> cardinal_offset() {
+        switch (Dir) {
+            case Cardinal::NORTH:
+                return std::pair(0, -1);
+            case Cardinal::SOUTH:
+                return std::pair(0, 1);
+            case Cardinal::EAST:
+                return std::pair(1, 0);
+            case Cardinal::WEST:
+                return std::pair(-1, 0);
+        }
+    }
+
+    template<Cardinal Dir>
+    static constexpr std::pair<size_t, size_t> reverse() {
+        auto [row, col] = cardinal_offset<Dir>();
+        return RowColPair(-row, -col);
+    }
+
+    //############################################################################//
+    // | UTILITY GRID NAVIGATION CLASS |
+    //############################################################################//
+
+    class GridNavigator {
+
+    private:
+        glm::vec<2, size_t> m_Pos;
+        MutableMaze& m_Maze;
+
+    public:
+        GridNavigator(
+                size_t row,
+                size_t col,
+                MutableMaze& maze
+        ) : m_Pos(col, row),
+            m_Maze(maze) {
+            HINFO("[GRID_NAVIGATOR]", " # Create: ( {}, {} )", row, col);
+        }
+
+        GridNavigator(const GridNavigator&) = delete;
+        GridNavigator(GridNavigator&&) = delete;
+
+    public:
+
+        //############################################################################//
+        // | NAVIGATION METHODS |
+        //############################################################################//
+
+    public:
+
+    };
+
+    //############################################################################//
+    // | FACTORY FOR GENERATING MAZES |
+    //############################################################################//
+
+    struct MazeBuilderFactory {
+    private:
+        static inline std::mt19937 s_RandomGenerator = {};
+
+    public:
+        static std::mt19937& get_rng() {
+            return s_RandomGenerator;
+        }
+
+    public:
+        virtual void init(MutableMaze& mutable_maze) = 0;
+        virtual void step(MutableMaze& mutable_maze) = 0;
+        virtual bool is_complete() = 0;
+    };
+
+    //############################################################################//
+    // | PRIMITIVE RNG 'MAZE' |
+    //############################################################################//
+
+    class TrulyRandomMazeImpl : public MazeBuilderFactory {
+    private:
+
+    public:
+        virtual void init(MutableMaze& mutable_maze) override {
+
+        }
+
+        virtual void step(MutableMaze& mutable_maze) override {
+
+        }
+
+        virtual bool is_complete() override {
+            return false;
+        }
+    };
+
+    //############################################################################//
+    // | RECURSIVE BACKTRACKER |
+    //############################################################################//
+
+    class RecursiveBacktrackImpl : public MazeBuilderFactory {
+
+    private:
+        Distribution m_Dist;
+
+    public:
+        virtual void init(MutableMaze& mutable_maze) override {
+
+        }
+
+        virtual void step(MutableMaze& mutable_maze) override {
+
+        }
+
+        virtual bool is_complete() override {
+            return false;
+        }
+
+    };
+}
+
+#endif //MAZEVISUALISATION_MAZECONTROLLER_H
