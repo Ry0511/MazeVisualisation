@@ -6,20 +6,18 @@
 
 #include "RenderableCube.h"
 
+#include "MazeController.h"
 #include "Logging.h"
 #include "Renderer/GLUtil.h"
-#include "Renderer/VertexObjectBinding.h"
 
 using namespace app::components;
 
 class App : public app::Application {
 
 private:
-    float  m_Theta             = 0.0F;
-    size_t m_GridSize          = 32;
-    size_t m_TickCount         = 0;
-    float  m_FrameTimeTotal    = 0.0f;
-    size_t m_MaxFrameTimeCount = 5000;
+    float          m_Theta     = 0.0F;
+    maze::MazeCell m_MazeSize  = 8;
+    size_t         m_TickCount = 0;
 
 private:
     maze::CubeManager m_CubeManager = {};
@@ -43,25 +41,12 @@ public:
         GL(glPolygonMode(GL_FRONT_AND_BACK, GL_FILL));
         GL(glLineWidth(4));
 
-        for (size_t i = 0; i < m_GridSize; ++i) {
-            for (size_t j = 0; j < m_GridSize; ++j) {
-                app::Entity e = create_entity();
-                add_component<maze::Cube>(e);
-                add_component<Position>(e, i, 0, j);
-            }
-        }
-
         // Initialise Managers
-        m_CubeManager.init(this);
+        m_CubeManager.init(this, m_MazeSize, m_MazeSize);
     }
 
     virtual bool on_update(float delta) override {
         m_Theta += delta;
-
-        ++m_TickCount;
-        m_FrameTimeTotal += delta;
-        float avg = m_FrameTimeTotal / m_TickCount;
-        if (m_TickCount >= m_MaxFrameTimeCount) m_TickCount = 0;
 
         set_title(
                 std::format(

@@ -23,36 +23,43 @@ namespace maze {
 
     using MazeCell = uint32_t;
     using MazeSizeType = unsigned short;
-    using Distribution = std::uniform_int_distribution<std::mt19937::result_type>;
+    using Distribution = std::uniform_int_distribution<MazeCell>;
 
     //############################################################################//
     // | MAZE CELL FLAGS |
     //############################################################################//
 
     enum class MazeCellFlags : MazeCell {
-        // Cell Type // 1, 2, 4, 8, ...
-        EMPTY          = 0b1,
-        WALL           = 0b10,
-        DOOR           = 0b100,
+        // Cell Type
+        EMPTY          = 0x1 << 0,
+        WALL           = 0x1 << 1,
+        DOOR           = 0x1 << 2,
         // Solid Colours
-        RED            = 0b1000,
-        GREEN          = 0b10000,
-        BLUE           = 0b100000,
+        RED            = 0x1 << 3,
+        GREEN          = 0x1 << 4,
+        BLUE           = 0x1 << 5,
         // Transition Effects
-        FADE_NEAR      = 0b1000000,
-        TRANSLATE_UP   = 0b10000000,
-        TRANSLATE_DOWN = 0b100000000,
-        SCALE_OUT      = 0b1000000000,
-        ROTATE         = 0b10000000000,
+        FADE_NEAR      = 0x1 << 6,
+        TRANSLATE_UP   = 0x1 << 7,
+        TRANSLATE_DOWN = 0x1 << 8,
+        SCALE_OUT      = 0x1 << 9,
+        ROTATE         = 0x1 << 10,
         // Texture Type
-        BRICK          = 0b100000000000,
-        STONE          = 0b1000000000000,
-        CHECKERED      = 0b10000000000000,
+        BRICK          = 0x1 << 11,
+        STONE          = 0x1 << 12,
+        CHECKERED      = 0x1 << 13,
         // State Flags
-        MODIFIED       = 0b100000000000000
+        MODIFIED       = 0x1 << 14
     };
 
+    static inline constexpr size_t s_CellFlagCount = 15;
+
     using CellFlag = MazeCellFlags;
+
+    template<CellFlag Flag>
+    static inline constexpr MazeCell cellof() {
+        return static_cast<MazeCell>(Flag);
+    }
 
     template<CellFlag Flag>
     static inline constexpr bool check_flag(MazeCell cell) {
@@ -69,6 +76,14 @@ namespace maze {
     static inline constexpr MazeCell combine_flags() {
         if (sizeof...(Flags) == 0U) return 0U;
         return (static_cast<MazeCell>(Flags) | ... | 0U);
+    }
+
+    static inline CellFlag get_flag(MazeCell index) {
+        if (index > s_CellFlagCount) {
+            HERR("[GET_FLAG]", " # Index {} > {}...", index, s_CellFlagCount);
+            throw std::exception();
+        }
+        return static_cast<CellFlag>(0x1 << index);
     }
 
     //############################################################################//
@@ -96,7 +111,7 @@ namespace maze {
             m_WidthDistribution(Distribution{ 0, width }),
             m_Height(height),
             m_HeightDistribution(Distribution{ 0, height }),
-            m_MazeBuffer(std::vector<MazeCell>(width * height)) {
+            m_MazeBuffer(std::vector<MazeCell>(width * height, cellof<MazeCellFlags::WALL>())) {
 
             if (m_MazeBuffer.size() == 0) {
                 HERR("[MUTABLE_MAZE]", " # Maze Size cannot be 0. ( {}*{} (0) )", width, height);
@@ -222,6 +237,106 @@ namespace maze {
                 throw std::exception();
             }
         }
+
+        auto begin() {
+            return m_MazeBuffer.begin();
+        }
+
+        auto end() {
+            return m_MazeBuffer.end();
+        }
+
+        template<class Function>
+        void for_each(Function fn) {
+            for (size_t r = 0; r < m_Height; ++r) {
+                for (size_t c = 0; c < m_Width; ++c) {
+                    fn(r, c, get_cell(r, c));
+                }
+            }
+        }
+    };
+
+    using MazePtr = std::unique_ptr<MutableMaze>;
+
+    //############################################################################//
+    // | UTILITY 2D ARRAY INDEX |
+    //############################################################################//
+
+    class Index2D {
+    private:
+        size_t m_Row;
+        size_t m_Col;
+
+    public:
+        constexpr Index2D() : m_Row(0), m_Col(0) {};
+        constexpr Index2D(size_t row, size_t col) : m_Row(row), m_Col(col) {};
+
+    public:
+        template<class T>
+        constexpr operator T() const {
+            return T(m_Row, m_Col);
+        }
+
+    public:
+        inline size_t get_row() const {
+            return m_Row;
+        }
+
+        inline size_t& get_row() {
+            return m_Row;
+        }
+
+        inline size_t get_col() const {
+            return m_Col;
+        }
+
+        inline size_t& get_col() {
+            return m_Col;
+        }
+
+    public:
+        bool advance(size_t row_max, size_t col_max) {
+            if (m_Col < col_max - 1) {
+                ++m_Col;
+            } else if (m_Row < row_max - 1) {
+                ++m_Row;
+                m_Col = 0;
+            } else {
+                return false;
+            }
+            return true;
+        }
+
+    public:
+        void operator +=(const Index2D& offset) {
+            m_Row += offset.m_Row;
+            m_Col += offset.m_Col;
+        }
+
+        constexpr Index2D operator +(const Index2D& offset) {
+            return Index2D(m_Row + offset.m_Row, m_Col + offset.m_Col);
+        }
+
+        void operator -=(const Index2D& offset) {
+            m_Row -= offset.m_Row;
+            m_Col -= offset.m_Col;
+        }
+
+        constexpr Index2D operator -(const Index2D& offset) {
+            return Index2D(m_Row - offset.m_Row, m_Col - offset.m_Col);
+        }
+
+        constexpr Index2D operator -() const {
+            return Index2D(-m_Row, -m_Col);
+        }
+
+        constexpr Index2D negate() const {
+            return Index2D(-m_Row, -m_Col);
+        }
+
+        constexpr bool operator ==(const Index2D& rhs) const {
+            return m_Row == rhs.m_Row && m_Col == rhs.m_Col;
+        }
     };
 
     //############################################################################//
@@ -236,23 +351,22 @@ namespace maze {
     };
 
     template<Cardinal Dir>
-    static constexpr std::pair<size_t, size_t> cardinal_offset() {
+    static constexpr Index2D cardinal_offset() {
         switch (Dir) {
             case Cardinal::NORTH:
-                return std::pair(0, -1);
+                return Index2D(0, -1);
             case Cardinal::SOUTH:
-                return std::pair(0, 1);
+                return Index2D(0, 1);
             case Cardinal::EAST:
-                return std::pair(1, 0);
+                return Index2D(1, 0);
             case Cardinal::WEST:
-                return std::pair(-1, 0);
+                return Index2D(-1, 0);
         }
     }
 
     template<Cardinal Dir>
-    static constexpr std::pair<size_t, size_t> reverse() {
-        auto [row, col] = cardinal_offset<Dir>();
-        return RowColPair(-row, -col);
+    static constexpr Index2D reverse() {
+        return cardinal_offset<Dir>().negate();
     }
 
     //############################################################################//
@@ -262,7 +376,7 @@ namespace maze {
     class GridNavigator {
 
     private:
-        glm::vec<2, size_t> m_Pos;
+        Index2D m_Index;
         MutableMaze& m_Maze;
 
     public:
@@ -270,7 +384,7 @@ namespace maze {
                 size_t row,
                 size_t col,
                 MutableMaze& maze
-        ) : m_Pos(col, row),
+        ) : m_Index(row, col),
             m_Maze(maze) {
             HINFO("[GRID_NAVIGATOR]", " # Create: ( {}, {} )", row, col);
         }
@@ -279,12 +393,78 @@ namespace maze {
         GridNavigator(GridNavigator&&) = delete;
 
     public:
+        size_t get_row() const {
+            return m_Index.get_row();
+        }
+
+        size_t get_col() const {
+            return m_Index.get_col();
+        }
+
+        MutableMaze& get_maze() {
+            return m_Maze;
+        }
 
         //############################################################################//
-        // | NAVIGATION METHODS |
+        // | VALIDATION & NAVIGATION |
         //############################################################################//
 
     public:
+
+        template<Cardinal Dir>
+        bool can_travel() {
+            Index2D offset = m_Index + cardinal_offset<Dir>();
+            return m_Maze.is_inbounds(offset.get_row(), offset.get_col());
+        }
+
+        template<Cardinal Dir>
+        void travel() {
+            m_Index += cardinal_offset<Dir>();
+        }
+
+        //############################################################################//
+        // | APPLY DATA |
+        //############################################################################//
+
+    public:
+
+        MazeCell& get_cell() {
+            return m_Maze.get_cell(get_row(), get_col());
+        }
+
+        MazeCell get_cell() const {
+            return m_Maze.get_cell(get_row(), get_col());
+        }
+
+        template<CellFlag Flag>
+        void set_flag() {
+            m_Maze.set_flag<Flag>();
+        }
+
+        template<CellFlag... Flags>
+        void set_flags() {
+            m_Maze.set_flags<Flags...>();
+        }
+
+        template<CellFlag Flag>
+        void unset_flag() {
+            m_Maze.unset_flag<Flag>();
+        }
+
+        template<CellFlag... Flags>
+        void unset_flags() {
+            m_Maze.unset_flags<Flags...>();
+        }
+
+        template<CellFlag Flag>
+        bool check_flag() const {
+            return m_Maze.check_flag<Flag>();
+        }
+
+        template<CellFlag... Flags>
+        bool check_flags() const {
+            return m_Maze.check_flags<Flags...>();
+        }
 
     };
 
@@ -292,20 +472,29 @@ namespace maze {
     // | FACTORY FOR GENERATING MAZES |
     //############################################################################//
 
-    struct MazeBuilderFactory {
+    class MazeBuilderFactory {
     private:
         static inline std::mt19937 s_RandomGenerator = {};
+
+    protected:
+        bool m_IsFinished = false;
 
     public:
         static std::mt19937& get_rng() {
             return s_RandomGenerator;
         }
 
+        virtual ~MazeBuilderFactory() = default;
+
     public:
         virtual void init(MutableMaze& mutable_maze) = 0;
-        virtual void step(MutableMaze& mutable_maze) = 0;
-        virtual bool is_complete() = 0;
+        virtual Index2D step(MutableMaze& mutable_maze) = 0;
+        virtual bool is_complete() {
+            return m_IsFinished;
+        };
     };
+
+    using MazeFactoryPtr = std::unique_ptr<MazeBuilderFactory>;
 
     //############################################################################//
     // | PRIMITIVE RNG 'MAZE' |
@@ -313,18 +502,28 @@ namespace maze {
 
     class TrulyRandomMazeImpl : public MazeBuilderFactory {
     private:
+        Index2D      m_Index                = Index2D(0, 0);
+        Distribution m_RandomCellTypeDist   = Distribution(0, 2);
+        Distribution m_RandomCellColourDist = Distribution(2, 6);
 
     public:
         virtual void init(MutableMaze& mutable_maze) override {
-
+            HINFO("[RAND_MAZE]", " # Initialise...");
         }
 
-        virtual void step(MutableMaze& mutable_maze) override {
+        virtual Index2D step(MutableMaze& maze) override {
+            if (m_IsFinished) return m_Index;
+            MazeCell& cell = maze.get_cell(m_Index.get_row(), m_Index.get_col());
 
-        }
+            cell |= static_cast<MazeCell>(get_flag(m_RandomCellTypeDist(get_rng())))
+                    | static_cast<MazeCell>(get_flag(m_RandomCellColourDist(get_rng())))
+                    | cellof<MazeCellFlags::MODIFIED>();
 
-        virtual bool is_complete() override {
-            return false;
+            if (!m_Index.advance(maze.get_height(), maze.get_width())) {
+                m_IsFinished = true;
+            }
+
+            return m_Index;
         }
     };
 
@@ -342,14 +541,9 @@ namespace maze {
 
         }
 
-        virtual void step(MutableMaze& mutable_maze) override {
+        virtual Index2D step(MutableMaze& mutable_maze) override {
 
         }
-
-        virtual bool is_complete() override {
-            return false;
-        }
-
     };
 }
 

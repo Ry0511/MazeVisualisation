@@ -380,10 +380,13 @@ namespace app {
 
     using Vec2Attribute = ComponentRestrainedAttribute<2, GLfloat, PrimitiveType::FLOAT>;
     using Vec3Attribute = ComponentRestrainedAttribute<3, GLfloat, PrimitiveType::FLOAT>;
+    using UnaryIntAttribute = ComponentRestrainedAttribute<1, GLint, PrimitiveType::INT>;
     using IntVec2Attribute = ComponentRestrainedAttribute<2, GLint, PrimitiveType::INT>;
     using IntVec3Attribute = ComponentRestrainedAttribute<3, GLint, PrimitiveType::INT>;
+    using UnaryUIntAttribute = ComponentRestrainedAttribute<1, GLuint, PrimitiveType::UINT>;
     using UIntVec2Attribute = ComponentRestrainedAttribute<2, GLuint, PrimitiveType::UINT>;
     using UIntVec3Attribute = ComponentRestrainedAttribute<3, GLuint, PrimitiveType::UINT>;
+    using UnaryByteAttribute = ComponentRestrainedAttribute<1, GLbyte, PrimitiveType::BYTE>;
     using ByteVec2Attribute = ComponentRestrainedAttribute<2, GLbyte, PrimitiveType::BYTE>;
     using ByteVec3Attribute = ComponentRestrainedAttribute<3, GLbyte, PrimitiveType::BYTE>;
 
