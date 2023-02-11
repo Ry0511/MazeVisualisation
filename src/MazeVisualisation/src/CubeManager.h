@@ -2,11 +2,11 @@
 // Created by -Ry on 01/02/2023.
 //
 
-#ifndef MAZEVISUALISATION_RENDERABLECUBE_H
-#define MAZEVISUALISATION_RENDERABLECUBE_H
+#ifndef MAZEVISUALISATION_CUBEMANAGER_H
+#define MAZEVISUALISATION_CUBEMANAGER_H
 
 #include "CommonModelFileReaders.h"
-#include "MazeController.h"
+#include "MazeConstructs.h"
 #include "Renderer/Shader.h"
 #include "Renderer/StandardComponents.h"
 
@@ -188,4 +188,4 @@ namespace maze {
     };
 }
 
-#endif //MAZEVISUALISATION_RENDERABLECUBE_H
+#endif //MAZEVISUALISATION_CUBEMANAGER_H

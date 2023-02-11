@@ -4,9 +4,9 @@
 
 #include "Application.h"
 
-#include "RenderableCube.h"
+#include "CubeManager.h"
 
-#include "MazeController.h"
+#include "MazeConstructs.h"
 #include "Logging.h"
 #include "Renderer/GLUtil.h"
 
