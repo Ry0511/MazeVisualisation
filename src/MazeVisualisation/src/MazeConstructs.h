@@ -12,6 +12,7 @@
 #include <vector>
 #include <cstdint>
 #include <random>
+#include <stack>
 
 namespace maze {
 
@@ -49,10 +50,11 @@ namespace maze {
         STONE          = 0x1 << 12,
         CHECKERED      = 0x1 << 13,
         // State Flags
-        MODIFIED       = 0x1 << 14
+        MODIFIED       = 0x1 << 14,
+        INVALID        = 0x1 << 15
     };
 
-    static inline constexpr size_t s_CellFlagCount = 15;
+    static inline constexpr size_t s_CellFlagCount = 16;
 
     using CellFlag = MazeCellFlags;
 
@@ -108,9 +110,9 @@ namespace maze {
                 MazeSizeType width,
                 MazeSizeType height
         ) : m_Width(width),
-            m_WidthDistribution(Distribution{ 0, width }),
+            m_WidthDistribution(Distribution{ 0, width - 1U }),
             m_Height(height),
-            m_HeightDistribution(Distribution{ 0, height }),
+            m_HeightDistribution(Distribution{ 0, height - 1U }),
             m_MazeBuffer(std::vector<MazeCell>(width * height, cellof<MazeCellFlags::WALL>())) {
 
             if (m_MazeBuffer.size() == 0) {
@@ -185,6 +187,22 @@ namespace maze {
             return m_MazeBuffer[(row * m_Height) + col];
         }
 
+        std::array<MazeCell, 4> get_adjacent(size_t row, size_t col) const {
+            std::array<MazeCell, 4> cells{ cellof<MazeCellFlags::INVALID>() };
+
+            // Capture Adjacent Cells -> [North, East, South, West]
+            if (is_inbounds(row - 1, col + 0)) cells[0] = get_cell(row - 1, col + 0);
+            if (is_inbounds(row + 0, col + 1)) cells[1] = get_cell(row + 0, col + 1);
+            if (is_inbounds(row + 1, col + 0)) cells[2] = get_cell(row + 1, col + 0);
+            if (is_inbounds(row + 0, col - 1)) cells[3] = get_cell(row + 0, col - 1);
+
+            return cells;
+        }
+
+        //############################################################################//
+        // | SET DATA |
+        //############################################################################//
+
         template<CellFlag Flag>
         void set_flag(size_t row, size_t col) {
             get_cell(row, col) |= static_cast<MazeCell>(Flag);
@@ -193,6 +211,16 @@ namespace maze {
         template<CellFlag... Flags>
         void set_flags(size_t row, size_t col) {
             (set_flag<Flags>(row, col), ...);
+        }
+
+        template<CellFlag... Flags>
+        void set_flags_adj(size_t row, size_t col) {
+
+            if (is_inbounds(row - 1, col + 0)) set_flags<Flags...>(row - 1, col + 0);
+            if (is_inbounds(row + 0, col + 1)) set_flags<Flags...>(row + 0, col + 1);
+            if (is_inbounds(row + 1, col + 0)) set_flags<Flags...>(row + 1, col + 0);
+            if (is_inbounds(row + 0, col - 1)) set_flags<Flags...>(row + 0, col - 1);
+
         }
 
         template<CellFlag Flag>
@@ -321,7 +349,7 @@ namespace maze {
             m_Col += offset.m_Col;
         }
 
-        constexpr Index2D operator +(const Index2D& offset) {
+        constexpr Index2D operator +(const Index2D& offset) const {
             return Index2D(m_Row + offset.m_Row, m_Col + offset.m_Col);
         }
 
@@ -330,7 +358,7 @@ namespace maze {
             m_Col -= offset.m_Col;
         }
 
-        constexpr Index2D operator -(const Index2D& offset) {
+        constexpr Index2D operator -(const Index2D& offset) const {
             return Index2D(m_Row - offset.m_Row, m_Col - offset.m_Col);
         }
 
@@ -351,30 +379,57 @@ namespace maze {
     // | UTILITY CARDINAL WRAPPER |
     //############################################################################//
 
-    enum class Cardinal : char {
-        NORTH = 'N',
-        EAST  = 'E',
-        SOUTH = 'S',
-        WEST  = 'W'
+    enum class Cardinal : int {
+        NORTH = 0,
+        EAST  = 1,
+        SOUTH = 2,
+        WEST  = 3
     };
 
     template<Cardinal Dir>
     static constexpr Index2D cardinal_offset() {
         switch (Dir) {
             case Cardinal::NORTH:
-                return Index2D(0, -1);
-            case Cardinal::SOUTH:
-                return Index2D(0, 1);
-            case Cardinal::EAST:
-                return Index2D(1, 0);
-            case Cardinal::WEST:
                 return Index2D(-1, 0);
+            case Cardinal::SOUTH:
+                return Index2D(1, 0);
+            case Cardinal::EAST:
+                return Index2D(0, 1);
+            case Cardinal::WEST:
+                return Index2D(0, -1);
         }
+    }
+
+    static constexpr Index2D cardinal_offset(Cardinal dir) {
+        switch (dir) {
+            case Cardinal::NORTH:
+                return Index2D(-1, 0);
+            case Cardinal::SOUTH:
+                return Index2D(1, 0);
+            case Cardinal::EAST:
+                return Index2D(0, 1);
+            case Cardinal::WEST:
+                return Index2D(0, -1);
+        }
+        HERR("[CARDINAL_OFFSET]", " # Unknown enumerable provided...");
+        throw std::exception();
     }
 
     template<Cardinal Dir>
     static constexpr Index2D reverse() {
         return cardinal_offset<Dir>().negate();
+    }
+
+    static constexpr Index2D reverse(Cardinal dir) {
+        return -cardinal_offset(dir);
+    }
+
+    static constexpr Cardinal get_direction(int index) {
+        if (index < 0 || index > 3) {
+            HERR("[CARDINAL_INDEX]", " # Index {} is invalid...", index);
+            throw std::exception();
+        }
+        return static_cast<Cardinal>(index);
     }
 
     //############################################################################//
@@ -428,6 +483,16 @@ namespace maze {
         template<Cardinal Dir>
         void travel() {
             m_Index += cardinal_offset<Dir>();
+        }
+
+        template<Cardinal Dir>
+        MazeCell& peak() {
+            if (can_travel<Dir>()) {
+                Index2D idx = m_Index - cardinal_offset<Dir>();
+                m_Maze.get_cell(idx.row(), idx.col());
+            } else {
+                HERR("[GRID_NAVIGATOR]", " # Can't peak at cell as it is out of bounds.");
+            }
         }
 
         //############################################################################//
@@ -500,6 +565,12 @@ namespace maze {
         virtual bool is_complete() {
             return m_IsFinished;
         };
+
+        inline void step_many(MutableMaze& maze, size_t count) {
+            for (size_t i = 0; i < count; ++i) {
+                step(maze);
+            }
+        }
     };
 
     using MazeFactoryPtr = std::unique_ptr<MazeBuilderFactory>;
@@ -536,6 +607,8 @@ namespace maze {
         }
     };
 
+    // TODO: Rewrite the maze class it causes a lot more issues as it is right now. Scrap the template stuff as well.
+
     //############################################################################//
     // | RECURSIVE BACKTRACKER |
     //############################################################################//
@@ -543,14 +616,75 @@ namespace maze {
     class RecursiveBacktrackImpl : public MazeBuilderFactory {
 
     private:
-        Distribution m_Dist;
+        Distribution        m_CardinalDist{ 0, 3 };
+        std::stack<Index2D> m_Stack{};
 
     public:
         virtual void init(MutableMaze& mutable_maze) override {
-
+            auto& rng = get_rng();
+            Index2D random_start{
+                    mutable_maze.get_height_distribution()(rng),
+                    mutable_maze.get_width_distribution()(rng)
+            };
+            m_Stack.push(random_start);
         }
 
-        virtual Index2D step(MutableMaze& mutable_maze) override {
+        virtual Index2D step(MutableMaze& maze) override {
+            if (m_Stack.empty()) {
+                m_IsFinished = true;
+                return Index2D(0, 0);
+            }
+
+            const Index2D& head = m_Stack.top();
+            std::array<MazeCell, 4> adjacent = maze.get_adjacent(head.row(), head.col());
+
+            int         valid[4]{ -1, -1, -1, -1 };
+            int         adjacent_count = 0;
+            for (size_t i              = 0; i < adjacent.size(); ++i) {
+                if (check_flag<MazeCellFlags::WALL>(adjacent[i])
+                    && !check_flag<MazeCellFlags::MODIFIED>(adjacent[i])
+                    && !check_flag<MazeCellFlags::INVALID>(adjacent[i])) {
+                    ++adjacent_count;
+                    valid[i] = 1;
+                }
+            }
+
+            if (adjacent_count == 0) {
+                m_Stack.pop();
+                return head;
+
+            } else {
+                int      eval = -1;
+                Cardinal dir  = Cardinal::NORTH;
+                while (eval == -1) {
+                    dir  = get_direction(m_CardinalDist(get_rng()));
+                    eval = valid[static_cast<int>(dir)];
+                }
+
+                Index2D dir_pos = head + cardinal_offset(dir);
+                maze.set_flags<CellFlag::MODIFIED, CellFlag::RED>(
+                        dir_pos.row(), dir_pos.col()
+                );
+                // maze.unset_flags<CellFlag::WALL>(dir_pos.row(), dir_pos.col());
+                maze.set_flags_adj<CellFlag::GREEN>(dir_pos.row(), dir_pos.col());
+
+                for (int i = 0; i < 4; ++i) {
+                    Cardinal v_dir  = get_direction(i);
+                    Index2D  offset = cardinal_offset(v_dir);
+                    auto     t      = head + offset;
+                    auto     r      = t.row(), c = t.col();
+
+                    if (maze.is_inbounds(r, c)
+                        && maze.check_flag<CellFlag::WALL>(r, c)
+                        && !maze.check_flag<MazeCellFlags::MODIFIED>(r, c)) {
+                        maze.set_flags<CellFlag::MODIFIED>(r, c);
+                        break;
+                    }
+                }
+
+                m_Stack.push(dir_pos);
+                return dir_pos;
+            }
 
         }
     };

@@ -47,7 +47,7 @@ namespace maze {
         float                m_MazeGeneratorTimer = 0.0F;
         float                m_CamRotateTheta     = 0.0F;
         glm::mat4            m_Rotate             = glm::mat4{ 1 };
-        glm::mat4            m_Scale              = glm::scale(glm::mat4{ 1 }, glm::vec3{ 0.25 });
+        glm::mat4            m_Scale              = glm::scale(glm::mat4{ 1 }, glm::vec3{ 0.5 });
 
     public:
         CubeManager() = default;
@@ -62,7 +62,8 @@ namespace maze {
         void init(app::Application* app, MazeCell rows, MazeCell cols) {
 
             m_Maze          = std::move(std::make_unique<MutableMaze>(rows, cols));
-            m_MazeGenerator = std::move(std::make_unique<TrulyRandomMazeImpl>());
+            m_MazeGenerator = std::move(std::make_unique<RecursiveBacktrackImpl>());
+            m_MazeGenerator->init(*m_Maze);
             m_EntityCount   = m_Maze->get_cell_count();
 
             //############################################################################//
@@ -117,7 +118,7 @@ namespace maze {
             m_MazeGeneratorTimer += delta;
             m_CamRotateTheta += delta;
 
-            if (m_MazeGeneratorTimer > 0.0F && !m_MazeGenerator->is_complete()) {
+            if (m_MazeGeneratorTimer > 0.1F && !m_MazeGenerator->is_complete()) {
                 auto index = m_MazeGenerator->step(*m_Maze);
                 m_MazeGeneratorTimer = 0.0;
 
