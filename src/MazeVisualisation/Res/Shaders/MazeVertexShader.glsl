@@ -3,9 +3,8 @@
 layout (location = 0) in vec3 v_vert_pos;
 layout (location = 1) in vec3 v_normal;
 layout (location = 2) in vec3 v_tex;
-layout (location = 3) in vec3 v_colour;
-layout (location = 4) in vec3 v_pos;
-layout (location = 5) in uint v_flag;
+layout (location = 3) in vec3 v_pos;
+layout (location = 4) in vec3 v_colour;
 
 out vec3 colour;
 
@@ -18,10 +17,10 @@ void main() {
     colour = v_colour;
 
     mat4 translate = mat4(
-        vec4(1,0,0,0),
-        vec4(0,1,0,0),
-        vec4(0,0,1,0),
-        vec4(v_pos,1)
+    vec4(1, 0, 0, 0),
+    vec4(0, 1, 0, 0),
+    vec4(0, 0, 1, 0),
+    vec4(v_pos, 1)
     );
 
     mat4 model = translate * u_ScaleMatrix * u_RotateMatrix;

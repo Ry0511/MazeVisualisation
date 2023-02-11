@@ -282,11 +282,19 @@ namespace maze {
             return m_Row;
         }
 
+        inline size_t row() const {
+            return m_Row;
+        }
+
         inline size_t& get_row() {
             return m_Row;
         }
 
         inline size_t get_col() const {
+            return m_Col;
+        }
+
+        inline size_t col() const {
             return m_Col;
         }
 
@@ -504,7 +512,7 @@ namespace maze {
     private:
         Index2D      m_Index                = Index2D(0, 0);
         Distribution m_RandomCellTypeDist   = Distribution(0, 2);
-        Distribution m_RandomCellColourDist = Distribution(2, 6);
+        Distribution m_RandomCellColourDist = Distribution(3, 5);
 
     public:
         virtual void init(MutableMaze& mutable_maze) override {
@@ -514,6 +522,7 @@ namespace maze {
         virtual Index2D step(MutableMaze& maze) override {
             if (m_IsFinished) return m_Index;
             MazeCell& cell = maze.get_cell(m_Index.get_row(), m_Index.get_col());
+            cell &= ~cellof<MazeCellFlags::WALL>();
 
             cell |= static_cast<MazeCell>(get_flag(m_RandomCellTypeDist(get_rng())))
                     | static_cast<MazeCell>(get_flag(m_RandomCellColourDist(get_rng())))

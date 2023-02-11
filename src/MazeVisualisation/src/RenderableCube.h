@@ -13,53 +13,6 @@
 namespace maze {
 
     //############################################################################//
-    // | ORIGINAL CUBE VERTEX DATA |
-    //############################################################################//
-
-    namespace cube_obj {
-        static constexpr std::array<float, 24> s_VertexPositions = {
-                -1.0, 1.0, 1.0,
-                -1.0, -1.0, 1.0,
-                -1.0, 1.0, -1.0,
-                -1.0, -1.0, -1.0,
-                1.0, 1.0, 1.0,
-                1.0, -1.0, 1.0,
-                1.0, 1.0, -1.0,
-                1.0, -1.0, -1.0
-        };
-
-        static constexpr std::array<unsigned int, 36> s_Indices = {
-                5 - 1, 3 - 1, 1 - 1,
-                3 - 1, 8 - 1, 4 - 1,
-                7 - 1, 6 - 1, 8 - 1,
-                2 - 1, 8 - 1, 6 - 1,
-                1 - 1, 4 - 1, 2 - 1,
-                5 - 1, 2 - 1, 6 - 1,
-                5 - 1, 7 - 1, 3 - 1,
-                3 - 1, 7 - 1, 8 - 1,
-                7 - 1, 5 - 1, 6 - 1,
-                2 - 1, 4 - 1, 8 - 1,
-                1 - 1, 3 - 1, 4 - 1,
-                5 - 1, 1 - 1, 2 - 1
-        };
-
-        static constexpr std::array<float, 36> s_Colours = {
-                0.0, 1.0, 0.0,
-                0.0, 0.0, 1.0,
-                1.0, 0.0, 0.0,
-                0.0, 1.0, 0.0,
-                0.0, 0.0, 1.0,
-                0.0, 1.0, 0.0,
-                1.0, 0.0, 0.0,
-                0.0, 0.0, 1.0,
-                1.0, 0.0, 0.0,
-                0.0, 1.0, 0.0,
-                1.0, 0.0, 1.0,
-                0.0, 1.0, 0.0,
-        };
-    }
-
-    //############################################################################//
     // | NAMESPACES & ALIAS'S |
     //############################################################################//
 
@@ -72,6 +25,10 @@ namespace maze {
     //############################################################################//
 
     class CubeManager {
+
+    private:
+        inline static unsigned int s_VertexDataIndex = 0U;
+        inline static unsigned int s_CellDataIndex   = 3U;
 
     private:
         inline static std::string s_CubeObjFile        = "Res/Models/Cube.obj";
@@ -92,16 +49,6 @@ namespace maze {
         glm::mat4            m_Rotate             = glm::mat4{ 1 };
         glm::mat4            m_Scale              = glm::scale(glm::mat4{ 1 }, glm::vec3{ 0.25 });
 
-    private:
-        float m_GlobalHaltTime = 0.0F;
-
-    private:
-        glm::vec3 m_CamInitialPos{};
-        glm::vec3 m_TargetCamPos{};
-        glm::vec3 m_CamLookAt{};
-        float     m_CamTranslateProgress = 0.0F;
-        bool      m_IsCamTranslating     = false;
-
     public:
         CubeManager() = default;
         CubeManager(const CubeManager&) = delete;
@@ -119,7 +66,7 @@ namespace maze {
             m_EntityCount   = m_Maze->get_cell_count();
 
             //############################################################################//
-            // | LOAD VAO OBJECT |
+            // | LOAD VAO OBJECT & SHADERS |
             //############################################################################//
 
             // Load Shader
@@ -140,40 +87,23 @@ namespace maze {
                             vertex_data.data(),
                             vertex_data.size()
                     ),
-                    0U
+                    s_VertexDataIndex, 0
             );
 
-            // Translates
-            std::vector<glm::vec3> positions{};
+            // Translates & Colours (Combined Buffer)
+            std::vector<float> pos_and_colours{};
             m_Maze->for_each([&](size_t r, size_t c, MazeCell cell) {
-                positions.push_back(glm::vec3{ r, 0, c });
+                pos_and_colours.insert(
+                        pos_and_colours.end(),
+                        { (float) r, 0.F, (float) c, 0.25F, 0.75F, 0.25F }
+                );
             });
-            m_CubeVao.add_buffer<Vec3Attribute>(
-                    init_array_buffer<glm::vec3, BufferAllocUsage::DYNAMIC_DRAW>(
-                            positions.data(),
-                            positions.size()
+            m_CubeVao.add_buffer<FloatAttribLayout33>(
+                    init_array_buffer<float, BufferAllocUsage::DYNAMIC_DRAW>(
+                            pos_and_colours.data(),
+                            pos_and_colours.size()
                     ),
-                    4U, 1
-            );
-
-            // Colours
-            std::vector<glm::vec3> colours{};
-            m_Maze->for_each([&](auto i, auto j, auto cell) {
-                colours.emplace_back(0.0, 0.0, 0.0);
-            });
-            m_CubeVao.add_buffer<Vec3Attribute>(
-                    init_array_buffer<glm::vec3, BufferAllocUsage::DYNAMIC_DRAW>(
-                            colours.data(), colours.size()
-                    ),
-                    3U, 1
-            );
-
-            // Cell Flags
-            m_CubeVao.add_buffer<UnaryUIntAttribute>(
-                    init_array_buffer<MazeCell, BufferAllocUsage::DYNAMIC_DRAW>(
-                            m_Maze->get_data(), m_Maze->get_cell_count()
-                    ),
-                    5U, 1
+                    s_CellDataIndex, 1
             );
 
             m_CubeVao.unbind();
@@ -187,60 +117,34 @@ namespace maze {
             m_MazeGeneratorTimer += delta;
             m_CamRotateTheta += delta;
 
-            if (m_GlobalHaltTime > 0.0F) {
-                m_GlobalHaltTime -= delta;
-
-            } else if (m_IsCamTranslating) {
-                glm::vec3 lerp     = glm::mix(
-                        m_CamInitialPos, m_TargetCamPos, m_CamTranslateProgress
-                );
-                app->Camera3D::lookat(m_CamLookAt, lerp);
-                m_CamTranslateProgress += delta * 3.F;
-                m_IsCamTranslating = 1.F > m_CamTranslateProgress;
-                app->Camera3D::get_camera_state().cam_pos = lerp;
-
-            } else if (m_MazeGeneratorTimer > 0.1F && !m_MazeGenerator->is_complete()) {
+            if (m_MazeGeneratorTimer > 0.0F && !m_MazeGenerator->is_complete()) {
                 auto index = m_MazeGenerator->step(*m_Maze);
                 m_MazeGeneratorTimer = 0.0;
 
-                // Look at the edited cell
-                m_IsCamTranslating     = true;
-                m_CamTranslateProgress = 0.0F;
-                m_CamInitialPos        = app->Camera3D::get_camera_state().cam_pos;
-                m_TargetCamPos         = glm::vec3(index.get_row() + 2, 2, index.get_col() + 2);
-                m_CamLookAt            = glm::vec3(index.get_row(), 0.5, index.get_col());
-                app->Camera3D::set_dirty_override();
-                m_GlobalHaltTime = 0.1;
-
                 m_CubeVao.bind();
 
-                auto& [flag_buffer, flag_attrib] = m_CubeVao.get_buffer(5U);
-                flag_buffer.bind();
-                flag_buffer.set_range<GLuint>(0, m_Maze->get_data(), m_Maze->get_cell_count());
-
-                size_t                 i = 0;
-                glm::vec3              changed{};
-                std::vector<glm::vec3> colours{};
+                m_EntityCount = 0;
+                std::vector<float> pos_and_colours{};
                 m_Maze->for_each([&](size_t r, size_t c, MazeCell& cell) {
-                    if (maze::check_flag<maze::CellFlag::MODIFIED>(cell)) {
-                        changed = { r, 0, c };
-                        cell &= ~cellof<MazeCellFlags::MODIFIED>();
-                        i       = r * m_Maze->get_height() + c;
+                    if (!check_flag<MazeCellFlags::EMPTY>(cell)) {
+
+                        // Calculate Cell Colour
+                        float red{}, green{}, blue{};
+                        if (check_flag<MazeCellFlags::RED>(cell)) red     = 1.0F;
+                        if (check_flag<MazeCellFlags::GREEN>(cell)) green = 1.0F;
+                        if (check_flag<MazeCellFlags::BLUE>(cell)) blue   = 1.0F;
+
+                        pos_and_colours.insert(
+                                pos_and_colours.end(),
+                                { (float) r, 0, (float) c, red, green, blue }
+                        );
+
+                        ++m_EntityCount;
                     }
-
-                    glm::vec3 colour{ 0.3, 0.3, 0.8 };
-                    if (maze::check_flag<MazeCellFlags::RED>(cell)) colour.r   = 1.0;
-                    if (maze::check_flag<MazeCellFlags::GREEN>(cell)) colour.g = 1.0;
-                    if (maze::check_flag<MazeCellFlags::BLUE>(cell)) colour.b  = 1.0;
-                    colours.emplace_back(colour);
                 });
-                auto& [translate_buffer, translate_attrib] = m_CubeVao.get_buffer(4U);
-                translate_buffer.bind();
-                translate_buffer.set_range<glm::vec3>(i, &changed, 1);
-
-                auto& [colour_buffer, colour_attrib] = m_CubeVao.get_buffer(3U);
-                colour_buffer.bind();
-                colour_buffer.set_range<glm::vec3>(0, colours.data(), colours.size());
+                auto& [cell_buffer, translate_attrib] = m_CubeVao.get_buffer(s_CellDataIndex);
+                cell_buffer.bind();
+                cell_buffer.set_range<float>(0, pos_and_colours.data(), pos_and_colours.size());
 
                 m_CubeVao.unbind();
 
@@ -249,8 +153,6 @@ namespace maze {
                 m_Rotate = glm::rotate(glm::mat4{ 1 }, t * 1.1F, { 1, 0, 0 })
                            * glm::rotate(glm::mat4{ 1 }, t * 0.85F, { 0, 1, 0 })
                            * glm::rotate(glm::mat4{ 1 }, t * 1.65F, { 0, 0, 1 });
-
-                app->Camera3D::set_dirty_override(false);
             }
 
         }
