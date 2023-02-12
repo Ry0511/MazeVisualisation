@@ -37,17 +37,18 @@ namespace maze {
         inline static std::string s_CubeFragmentShader = "Res/Shaders/FragmentShader.glsl";
 
     private:
-        app::Mutable3DModel  m_CubeModel          = {};
-        app::Vao             m_CubeVao            = {};
-        app::Shader          m_CubeShader         = {};
-        maze::MazePtr        m_Maze               = { nullptr };
-        maze::MazeFactoryPtr m_MazeGenerator      = { nullptr };
-        size_t               m_EntityCount        = 0;
-        size_t               m_VertexCount        = 0;
-        float                m_MazeGeneratorTimer = 0.0F;
-        float                m_CamRotateTheta     = 0.0F;
-        glm::mat4            m_Rotate             = glm::mat4{ 1 };
-        glm::mat4            m_Scale              = glm::scale(glm::mat4{ 1 }, glm::vec3{ 0.5 });
+        app::Mutable3DModel m_CubeModel     = {};
+        app::Vao            m_CubeVao       = {};
+        app::Shader         m_CubeShader    = {};
+        maze::Maze2D        m_Maze          = Maze2D{ 1, 1 };
+        maze::MazeGenerator m_MazeGenerator = { nullptr };
+        size_t              m_EntityCount   = 0;
+        size_t              m_VertexCount   = 0;
+        glm::mat4           m_Rotate        = glm::mat4{ 1 };
+        glm::mat4           m_Scale         = glm::scale(glm::mat4{ 1 }, glm::vec3{ 0.5 });
+
+    private:
+        float m_MazeGeneratorTimer = 0.0F;
 
     public:
         CubeManager() = default;
@@ -59,12 +60,11 @@ namespace maze {
         //############################################################################//
 
     public:
-        void init(app::Application* app, MazeCell rows, MazeCell cols) {
+        void init(app::Application* app, Index rows, Index cols) {
 
-            m_Maze          = std::move(std::make_unique<MutableMaze>(rows, cols));
+            m_Maze          = std::move(Maze2D{ rows, cols });
             m_MazeGenerator = std::move(std::make_unique<RecursiveBacktrackImpl>());
-            m_MazeGenerator->init(*m_Maze);
-            m_EntityCount   = m_Maze->get_cell_count();
+            m_MazeGenerator->init(m_Maze);
 
             //############################################################################//
             // | LOAD VAO OBJECT & SHADERS |
@@ -91,22 +91,27 @@ namespace maze {
                     s_VertexDataIndex, 0
             );
 
-            // Translates & Colours (Combined Buffer)
-            std::vector<float> pos_and_colours{};
-            m_Maze->for_each([&](size_t r, size_t c, MazeCell cell) {
-                pos_and_colours.insert(
-                        pos_and_colours.end(),
-                        { (float) r, 0.F, (float) c, 0.25F, 0.75F, 0.25F }
-                );
-            });
+            // Cubes
+            std::vector<glm::vec3> cube_position_buffer{};
+            std::vector<glm::mat4> cube_scale_buffer{};
+            m_Maze.fill_path_vec(cube_position_buffer, cube_scale_buffer);
             m_CubeVao.add_buffer<FloatAttribLayout33>(
-                    init_array_buffer<float, BufferAllocUsage::DYNAMIC_DRAW>(
-                            pos_and_colours.data(),
-                            pos_and_colours.size()
+                    init_array_buffer<glm::vec3, BufferAllocUsage::DYNAMIC_DRAW>(
+                            cube_position_buffer.data(),
+                            cube_position_buffer.size()
                     ),
                     s_CellDataIndex, 1
             );
 
+            m_CubeVao.add_buffer<FloatMat4Attrib>(
+                    init_array_buffer<glm::mat4, BufferAllocUsage::DYNAMIC_DRAW>(
+                            cube_scale_buffer.data(),
+                            cube_scale_buffer.size()
+                    ),
+                    5U, 1
+            );
+
+            m_EntityCount = cube_position_buffer.size() / 2;
             m_CubeVao.unbind();
         }
 
@@ -116,46 +121,30 @@ namespace maze {
 
         void update(float delta, app::Application* app) {
             m_MazeGeneratorTimer += delta;
-            m_CamRotateTheta += delta;
 
-            if (m_MazeGeneratorTimer > 0.1F && !m_MazeGenerator->is_complete()) {
-                auto index = m_MazeGenerator->step(*m_Maze);
-                m_MazeGeneratorTimer = 0.0;
+            if (m_MazeGeneratorTimer > 0.005F && !m_MazeGenerator->is_complete()) {
+                m_MazeGenerator->step(m_Maze);
+                m_MazeGeneratorTimer = 0.0F;
 
+                std::vector<glm::vec3> cube_position_buffer{};
+                std::vector<glm::mat4> cube_scale_buffer{};
+                m_Maze.fill_path_vec(cube_position_buffer, cube_scale_buffer);
                 m_CubeVao.bind();
+                auto& [buffer, attrib] = m_CubeVao.get_buffer(s_CellDataIndex);
+                buffer.bind();
+                buffer.set_range<glm::vec3>(0, cube_position_buffer.data(),
+                                            cube_position_buffer.size());
+                buffer.unbind();
 
-                m_EntityCount = 0;
-                std::vector<float> pos_and_colours{};
-                m_Maze->for_each([&](size_t r, size_t c, MazeCell& cell) {
-                    if (!check_flag<MazeCellFlags::EMPTY>(cell)) {
-
-                        // Calculate Cell Colour
-                        float red{}, green{}, blue{};
-                        if (check_flag<MazeCellFlags::RED>(cell)) red     = 1.0F;
-                        if (check_flag<MazeCellFlags::GREEN>(cell)) green = 1.0F;
-                        if (check_flag<MazeCellFlags::BLUE>(cell)) blue   = 1.0F;
-
-                        pos_and_colours.insert(
-                                pos_and_colours.end(),
-                                { (float) r, 0, (float) c, red, green, blue }
-                        );
-
-                        ++m_EntityCount;
-                    }
-                });
-                auto& [cell_buffer, translate_attrib] = m_CubeVao.get_buffer(s_CellDataIndex);
-                cell_buffer.bind();
-                cell_buffer.set_range<float>(0, pos_and_colours.data(), pos_and_colours.size());
+                auto& [scale_buffer, scale_attrib] = m_CubeVao.get_buffer(5U);
+                scale_buffer.bind();
+                scale_buffer.set_range<glm::mat4>(0, cube_scale_buffer.data(),
+                                                  cube_scale_buffer.size());
+                scale_buffer.unbind();
 
                 m_CubeVao.unbind();
-
-            } else if (m_MazeGenerator->is_complete()) {
-                float t = m_MazeGeneratorTimer;
-                m_Rotate = glm::rotate(glm::mat4{ 1 }, t * 1.1F, { 1, 0, 0 })
-                           * glm::rotate(glm::mat4{ 1 }, t * 0.85F, { 0, 1, 0 })
-                           * glm::rotate(glm::mat4{ 1 }, t * 1.65F, { 0, 0, 1 });
+                m_EntityCount = cube_position_buffer.size() / 2;
             }
-
         }
 
         //############################################################################//
