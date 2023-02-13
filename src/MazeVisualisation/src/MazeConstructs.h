@@ -414,7 +414,8 @@ namespace maze {
             return cells;
         }
 
-        void fill_path_vec(std::vector<glm::vec3>& vec, std::vector<glm::mat4>& scale_vec, float offset = 1.0F) const {
+        void fill_path_vec(std::vector<glm::vec3>& vec, std::vector<glm::mat4>& scale_vec,
+                           float offset = 1.0F) const {
 
             auto get_colour = [](const Cell cell) {
                 glm::vec3 c{};
@@ -434,33 +435,33 @@ namespace maze {
                     // Add Floor
                     vec.emplace_back(x, y - offset, z);
                     vec.emplace_back(1.0, 1.0, 1.0);
-                    scale_vec.push_back(glm::scale(glm::mat4{1}, glm::vec3{0.5}));
+                    scale_vec.push_back(glm::scale(glm::mat4{ 1 }, glm::vec3{ 0.5 }));
 
                     // Evaluate West Path if in far left column
                     if (col == 0 && !is_set<Flag::PATH_WEST>(cell)) {
-                        vec.emplace_back(x, y, z - offset);
-                        vec.push_back(glm::vec3{1.0, 0.0, 0.0});
-                        scale_vec.push_back(glm::scale(glm::mat4{1}, glm::vec3{0.5, 0.5, 0.5}));
+                        vec.emplace_back(x, y, z - (offset * 0.5F));
+                        vec.push_back(colour);
+                        scale_vec.push_back(glm::scale(glm::mat4{ 1 }, glm::vec3{ 0.4, 0.5, 0.1 }));
                     }
 
                     // Evaluate North Wall if in Top Row
                     if (row == 0 && !is_set<Flag::PATH_NORTH>(cell)) {
-                        vec.emplace_back(x - offset, y, z);
-                        vec.push_back(glm::vec3{0.0, 1.0, 0.0});
-                        scale_vec.push_back(glm::scale(glm::mat4{1}, glm::vec3{0.5, 0.5, 0.5}));
+                        vec.emplace_back(x - (offset * 0.5F), y, z);
+                        vec.push_back(colour);
+                        scale_vec.push_back(glm::scale(glm::mat4{ 1 }, glm::vec3{ 0.1, 0.5, 0.4 }));
                     }
 
                     // Always Evaluate East & South
                     if (!is_set<Flag::PATH_EAST>(cell)) {
-                        vec.emplace_back(x, y, z + offset);
-                        vec.push_back(glm::vec3{0.0, 0.0, 1.0});
-                        scale_vec.push_back(glm::scale(glm::mat4{1}, glm::vec3{0.5, 0.5, 0.5}));
+                        vec.emplace_back(x, y, z + (offset * 0.5F));
+                        vec.push_back(colour);
+                        scale_vec.push_back(glm::scale(glm::mat4{ 1 }, glm::vec3{ 0.4, 0.5, 0.1 }));
                     }
 
                     if (!is_set<Flag::PATH_SOUTH>(cell)) {
-                        vec.emplace_back(x + (offset * 0.5), y, z);
-                        vec.push_back(glm::vec3{1.0, 1.0, 0.0});
-                        scale_vec.push_back(glm::scale(glm::mat4{1}, glm::vec3{0.2, 0.5, 0.5}));
+                        vec.emplace_back(x + (offset * 0.5F), y, z);
+                        vec.push_back(colour);
+                        scale_vec.push_back(glm::scale(glm::mat4{ 1 }, glm::vec3{ 0.1, 0.5, 0.4 }));
                     }
                 }
             }
@@ -507,8 +508,6 @@ namespace maze {
         void make_path(const Index2D pos, const Cardinal dir) {
             Cell& from = get_cell(pos);
             Cell& to   = get_cell(pos + cardinal_offset(dir));
-
-            // TODO: This isn't enough, we also need to set all adjacent cells accessible.
 
             switch (dir) {
                 case Cardinal::NORTH: {
@@ -648,6 +647,7 @@ namespace maze {
 
     class WallWestToEastImpl : public AbstractMazeGenerator {
     private:
+        Index2D m_Prev{ 0, 0 };
         Index2D m_Pos{ 0, 0 };
 
     public:
@@ -658,17 +658,21 @@ namespace maze {
         virtual void step(Maze2D& maze) override {
             if (is_complete()) return;
 
+            // Step Forward
             if (maze.inbounds(m_Pos, Cardinal::EAST)) {
                 maze.make_path(m_Pos, Cardinal::EAST);
+                maze.set_flags(m_Pos, { Flag::VISITED, Flag::RED });
             }
 
+            // Update Previous
+            maze.unset_flags(m_Prev, { Flag::RED });
+            maze.set_flags(m_Prev, { Flag::GREEN });
+
+            // Update State
             Index2D next = m_Pos.next(maze.get_row_count(), maze.get_col_count());
+            m_Prev       = m_Pos;
             m_IsComplete = next == m_Pos;
             m_Pos        = next;
-
-            if (is_complete()) {
-                HINFO("[W2E]", " # West to East path generator finished...");
-            }
         }
     };
 
@@ -677,6 +681,9 @@ namespace maze {
     //############################################################################//
 
     class RecursiveBacktrackImpl : public AbstractMazeGenerator {
+
+        // TODO: This does not work and for now I do not know why my main assumption is that
+        //  cells are being blacklisted when they shouldn't have.
 
     private:
         std::stack<Index2D> m_Stack{};

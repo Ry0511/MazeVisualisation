@@ -24,7 +24,7 @@ void main() {
     vec4(v_pos, 1)
     );
 
-    mat4 model = translate * v_scale_matrix * u_RotateMatrix;
+    mat4 model = u_ScaleMatrix * (translate * v_scale_matrix * u_RotateMatrix);
 
     gl_Position = u_ProjectionMatrix * u_ViewMatrix * model * vec4(v_vert_pos, 1.0);
 }

@@ -45,7 +45,7 @@ namespace maze {
         size_t              m_EntityCount   = 0;
         size_t              m_VertexCount   = 0;
         glm::mat4           m_Rotate        = glm::mat4{ 1 };
-        glm::mat4           m_Scale         = glm::scale(glm::mat4{ 1 }, glm::vec3{ 0.5 });
+        glm::mat4           m_Scale         = glm::scale(glm::mat4{ 1 }, glm::vec3{ 1.5 });
 
     private:
         float m_MazeGeneratorTimer = 0.0F;
@@ -63,7 +63,7 @@ namespace maze {
         void init(app::Application* app, Index rows, Index cols) {
 
             m_Maze          = std::move(Maze2D{ rows, cols });
-            m_MazeGenerator = std::move(std::make_unique<RecursiveBacktrackImpl>());
+            m_MazeGenerator = std::move(std::make_unique<WallWestToEastImpl>());
             m_MazeGenerator->init(m_Maze);
 
             //############################################################################//
@@ -122,7 +122,7 @@ namespace maze {
         void update(float delta, app::Application* app) {
             m_MazeGeneratorTimer += delta;
 
-            if (m_MazeGeneratorTimer > 0.005F && !m_MazeGenerator->is_complete()) {
+            if (m_MazeGeneratorTimer > 0.1F && !m_MazeGenerator->is_complete()) {
                 m_MazeGenerator->step(m_Maze);
                 m_MazeGeneratorTimer = 0.0F;
 
