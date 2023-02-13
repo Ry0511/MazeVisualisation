@@ -46,7 +46,6 @@ namespace maze {
         constexpr bool operator <(const Index2D i) const { return i.row > row && i.col > col; }
         constexpr bool operator <=(const Index2D i) const { return i.row >= row && i.col >= col; }
 
-
         constexpr bool operator ==(const Index2D i) const {
             return i.row == row && i.col == col;
         }
@@ -86,7 +85,13 @@ namespace maze {
             } else if (row < row_max - 1) {
                 return Index2D{ row + 1, 0 };
             } else {
-                return *this;
+                HERR("[INDEX2D]",
+                     " # Cannot get next index from '{}' to bounds '{}, {}'",
+                     to_string(),
+                     row_max,
+                     col_max
+                );
+                throw std::exception();
             }
         }
 
@@ -645,10 +650,14 @@ namespace maze {
         }
     };
 
-    class WallWestToEastImpl : public AbstractMazeGenerator {
+    class PathSingleDirection : public AbstractMazeGenerator {
     private:
-        Index2D m_Prev{ 0, 0 };
-        Index2D m_Pos{ 0, 0 };
+        Index2D  m_Prev{ 0, 0 };
+        Index2D  m_Pos{ 0, 0 };
+        Cardinal m_Direction = Cardinal::EAST;
+
+    public:
+        PathSingleDirection(Cardinal dir = Cardinal::WEST) : m_Direction(dir) {}
 
     public:
         virtual void init(Maze2D& maze) override {
@@ -659,8 +668,8 @@ namespace maze {
             if (is_complete()) return;
 
             // Step Forward
-            if (maze.inbounds(m_Pos, Cardinal::EAST)) {
-                maze.make_path(m_Pos, Cardinal::EAST);
+            if (maze.inbounds(m_Pos, m_Direction)) {
+                maze.make_path(m_Pos, m_Direction);
                 maze.set_flags(m_Pos, { Flag::VISITED, Flag::RED });
             }
 
@@ -683,7 +692,8 @@ namespace maze {
     class RecursiveBacktrackImpl : public AbstractMazeGenerator {
 
         // TODO: This does not work and for now I do not know why my main assumption is that
-        //  cells are being blacklisted when they shouldn't have.
+        //  cells are being blacklisted when they shouldn't have. An extra look at the edge walls
+        //  should be done as I feel as if that is the biggest concern.
 
     private:
         std::stack<Index2D> m_Stack{};

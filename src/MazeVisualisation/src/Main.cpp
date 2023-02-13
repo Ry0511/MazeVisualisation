@@ -27,7 +27,7 @@ public:
 
     virtual void camera_update(app::Window& window, float delta) override {
         Camera3D::camera_update(window, delta);
-        get_camera_state().cam_pos.y = 8.F;
+        get_camera_state().cam_pos.y = 6.F;
     }
 
     virtual void on_create() override {
