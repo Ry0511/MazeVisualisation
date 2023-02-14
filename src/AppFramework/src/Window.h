@@ -46,6 +46,12 @@ namespace app {
         FN_7  = GLFW_KEY_F7, FN_8 = GLFW_KEY_F8,
         FN_9  = GLFW_KEY_F9, FN_10 = GLFW_KEY_F10,
         FN_11 = GLFW_KEY_F11, FN_12 = GLFW_KEY_F12,
+
+        SPACE  = GLFW_KEY_SPACE,
+        COMMA  = GLFW_KEY_COMMA,
+        PERIOD = GLFW_KEY_PERIOD,
+        SLASH  = GLFW_KEY_SLASH,
+        BSLASH = GLFW_KEY_BACKSLASH
     };
 
     enum class MouseButton : int {
@@ -79,10 +85,10 @@ namespace app {
     //############################################################################//
 
     struct WindowState {
-        glm::ivec2 size        = {0, 0};
-        glm::ivec2 pos         = {0, 0};
-        glm::vec2  mouse_pos   = {0, 0};
-        glm::vec2  scroll_pos  = {0, 0};
+        glm::ivec2 size        = { 0, 0 };
+        glm::ivec2 pos         = { 0, 0 };
+        glm::vec2  mouse_pos   = { 0, 0 };
+        glm::vec2  scroll_pos  = { 0, 0 };
         int        button_mods = 0;
     };
 
@@ -102,8 +108,8 @@ namespace app {
 
     private:
         GLFWwindow* m_Handle = nullptr;
-        WindowState m_WindowState = {};
-        bool m_IsCursorLocked = false;
+        WindowState m_WindowState    = {};
+        bool        m_IsCursorLocked = false;
 
     public:
         explicit Window(const char* title, int width, int height);
@@ -135,7 +141,7 @@ namespace app {
         void set_pos(glm::ivec2 pos);
         void lock_cursor_to_centre(bool is_cursor_locked = true);
         glm::vec2 get_mouse_pos();
-        glm::vec2 get_mouse_vel(glm::vec2 sens = glm::vec2{0.02, 0.02});
+        glm::vec2 get_mouse_vel(glm::vec2 sens = glm::vec2{ 0.02, 0.02 });
         bool is_key_pressed(Key key);
         void compute_key_state(bool* states, std::initializer_list<Key> keys);
         bool is_modifier_set(Modifier mod);

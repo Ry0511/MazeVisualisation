@@ -16,7 +16,7 @@ class App : public app::Application {
 
 private:
     float       m_Theta     = 0.0F;
-    maze::Index m_MazeSize  = 8;
+    maze::Index m_MazeSize  = 32;
     size_t      m_TickCount = 0;
 
 private:
@@ -27,7 +27,7 @@ public:
 
     virtual void camera_update(app::Window& window, float delta) override {
         Camera3D::camera_update(window, delta);
-        get_camera_state().cam_pos.y = 6.F;
+        get_camera_state().cam_pos.y = 20.F;
     }
 
     virtual void on_create() override {

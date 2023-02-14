@@ -45,10 +45,12 @@ namespace maze {
         size_t              m_EntityCount   = 0;
         size_t              m_VertexCount   = 0;
         glm::mat4           m_Rotate        = glm::mat4{ 1 };
-        glm::mat4           m_Scale         = glm::scale(glm::mat4{ 1 }, glm::vec3{ 1.1 });
+        glm::mat4           m_Scale         = glm::scale(glm::mat4{ 1 }, glm::vec3{ 1.2 });
 
     private:
         float m_MazeGeneratorTimer = 0.0F;
+        bool  m_IsPaused           = true;
+        float m_InputPollTimer     = 0.0F;
 
     public:
         CubeManager() = default;
@@ -122,7 +124,17 @@ namespace maze {
         void update(float delta, app::Application* app) {
             m_MazeGeneratorTimer += delta;
 
-            if (m_MazeGeneratorTimer > 0.2F && !m_MazeGenerator->is_complete()) {
+            if (app->is_key_pressed(Key::SPACE)) {
+                m_InputPollTimer += delta;
+
+                if (m_InputPollTimer > 0.25F) {
+                    m_IsPaused = !m_IsPaused;
+                    HINFO("[CUBE_MAN]", " # Pause State: '{}'", m_IsPaused);
+                    m_InputPollTimer = 0.0F;
+                }
+            }
+
+            if (!m_IsPaused && m_MazeGeneratorTimer > 0.005F && !m_MazeGenerator->is_complete()) {
                 m_MazeGenerator->step(m_Maze);
                 m_MazeGeneratorTimer = 0.0F;
 
