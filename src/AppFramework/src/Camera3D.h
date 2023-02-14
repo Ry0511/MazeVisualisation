@@ -48,6 +48,7 @@ namespace app {
         float     cam_yaw           = camera_constants::s_InitialYaw;
         float     cam_pitch         = camera_constants::s_InitialPitch;
         bool      is_dirty          = true;
+        bool      dirty_override    = false;
     };
 
     //############################################################################//
@@ -156,6 +157,19 @@ namespace app {
             m_State.is_dirty = false;
         };
 
+        inline void mark_dirty(const bool state = true) {
+            m_State.is_dirty = state;
+        }
+
+        void lookat(const glm::vec3 at, const glm::vec3 pos) {
+            m_Matrix = glm::lookAt(pos, at, m_State.cam_world_up);
+            mark_dirty(false);
+        }
+
+        void set_dirty_override(bool state = true) {
+            m_State.dirty_override = state;
+        }
+
         //############################################################################//
         // | GET CAMERA STATE |
         //############################################################################//
@@ -170,7 +184,7 @@ namespace app {
         }
 
         inline const glm::mat4& get_camera_matrix() {
-            if (m_State.is_dirty) {
+            if (m_State.is_dirty && !m_State.dirty_override) {
                 update_camera_matrix();
             }
             return m_Matrix;

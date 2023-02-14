@@ -334,7 +334,7 @@ namespace app {
         ComponentRestrainedAttribute(
                 GLuint index,
                 GLint divisor = 0,
-                GLboolean normalise = GL_FALSE,
+                GLint normalise = GL_FALSE,
                 GLsizei stride = 0,
                 const GLvoid* offset = 0
         ) : AbstractAttributePointer(index),
@@ -380,10 +380,13 @@ namespace app {
 
     using Vec2Attribute = ComponentRestrainedAttribute<2, GLfloat, PrimitiveType::FLOAT>;
     using Vec3Attribute = ComponentRestrainedAttribute<3, GLfloat, PrimitiveType::FLOAT>;
+    using UnaryIntAttribute = ComponentRestrainedAttribute<1, GLint, PrimitiveType::INT>;
     using IntVec2Attribute = ComponentRestrainedAttribute<2, GLint, PrimitiveType::INT>;
     using IntVec3Attribute = ComponentRestrainedAttribute<3, GLint, PrimitiveType::INT>;
+    using UnaryUIntAttribute = ComponentRestrainedAttribute<1, GLuint, PrimitiveType::UINT>;
     using UIntVec2Attribute = ComponentRestrainedAttribute<2, GLuint, PrimitiveType::UINT>;
     using UIntVec3Attribute = ComponentRestrainedAttribute<3, GLuint, PrimitiveType::UINT>;
+    using UnaryByteAttribute = ComponentRestrainedAttribute<1, GLbyte, PrimitiveType::BYTE>;
     using ByteVec2Attribute = ComponentRestrainedAttribute<2, GLbyte, PrimitiveType::BYTE>;
     using ByteVec3Attribute = ComponentRestrainedAttribute<3, GLbyte, PrimitiveType::BYTE>;
 
@@ -491,11 +494,14 @@ namespace app {
     >
     struct VertexLayout : AbstractAttributePointer {
         GLboolean normalise;
+        GLint     divisor;
 
         VertexLayout(
                 const GLuint index,
+                GLint divisor = 0,
                 GLint normalise = GL_FALSE
         ) : AbstractAttributePointer(index),
+            divisor(divisor),
             normalise(normalise) {};
 
         template<
@@ -503,14 +509,14 @@ namespace app {
                 typename... Others
         >
         constexpr void create_attrib(
-                GLuint& index,
+                GLuint& v_index,
                 size_t stride,
                 size_t& total_size
         ) {
             size_t size = get_gl_size<Head>();
 
             HINFO("[VERTEX_LAYOUT]", " # {}, {}, {:#06x}, {}, {}, {:p}",
-                  index,
+                  v_index,
                   size,
                   static_cast<GLenum>(GLType),
                   normalise == GL_TRUE,
@@ -518,8 +524,10 @@ namespace app {
                   (void*) (total_size * sizeof(T))
             );
 
+            GL(glEnableVertexAttribArray(v_index));
+            GL(glVertexAttribDivisor(v_index, divisor));
             GL(glVertexAttribPointer(
-                    index,
+                    v_index,
                     size,
                     static_cast<GLenum>(GLType),
                     normalise,
@@ -527,21 +535,20 @@ namespace app {
                     (void*) (total_size * sizeof(T))
             ));
 
-            index++;
+            v_index++;
             total_size += size;
-
-            // ((create_attrib<Others>(index + 1, stride, total_size + size)), ...);
         }
 
         virtual void create() override {
-            GLuint index  = 0;
-            size_t offset = 0;
-            (create_attrib<Types>(index, (sizeof(Types) + ...), offset), ...);
+            GLuint v_index = index;
+            size_t offset  = 0;
+            (create_attrib<Types>(v_index, (sizeof(Types) + ...), offset), ...);
         }
 
         virtual void enable() override {
             for (size_t i = 0; i < sizeof...(Types); ++i) {
                 GL(glEnableVertexAttribArray(index + i));
+                GL(glVertexAttribDivisor(index + i, divisor));
                 ++i;
             }
         }
@@ -549,6 +556,7 @@ namespace app {
         virtual void disable() override {
             for (size_t i = 0; i < sizeof...(Types); ++i) {
                 GL(glDisableVertexAttribArray(index + i));
+                GL(glVertexAttribDivisor(index + i, 0));
                 ++i;
             }
         }
@@ -557,6 +565,7 @@ namespace app {
 
     using FloatAttribLayout333 = VertexLayout<float, PrimitiveType::FLOAT, glm::vec3, glm::vec3, glm::vec3>;
     using FloatAttribLayout332 = VertexLayout<float, PrimitiveType::FLOAT, glm::vec3, glm::vec3, glm::vec2>;
+    using FloatAttribLayout33 = VertexLayout<float, PrimitiveType::FLOAT, glm::vec3, glm::vec3>;
 
     //############################################################################//
     // | BUFFER & ATTRIBUTE TOGGLES |
@@ -794,7 +803,8 @@ namespace app {
         }
 
         const glm::vec3& get_vertex(size_t index) const {
-            ASSERT(index < m_Vertices.size(), "Index {}..{} out of bounds...", index, m_Vertices.size());
+            ASSERT(index < m_Vertices.size(), "Index {}..{} out of bounds...", index,
+                   m_Vertices.size());
             return m_Vertices.at(index);
         }
 
@@ -811,7 +821,8 @@ namespace app {
         }
 
         const glm::vec3& get_normal(size_t index) const {
-            ASSERT(index < m_Normals.size(), "Index {}..{} out of bounds...", index, m_Normals.size());
+            ASSERT(index < m_Normals.size(), "Index {}..{} out of bounds...", index,
+                   m_Normals.size());
             return m_Normals.at(index);
         }
 
@@ -828,7 +839,8 @@ namespace app {
         }
 
         const glm::vec3& get_tex_coord(size_t index) const {
-            ASSERT(index < m_TextureCoords.size(), "Index {}..{} out of bounds...", index, m_TextureCoords.size());
+            ASSERT(index < m_TextureCoords.size(), "Index {}..{} out of bounds...", index,
+                   m_TextureCoords.size());
             return m_TextureCoords.at(index);
         }
 
