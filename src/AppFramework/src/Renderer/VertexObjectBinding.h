@@ -487,9 +487,6 @@ namespace app {
         }
     }
 
-    // TODO: This assumes that all types are of the PrimitiveType size this is not correct;
-    //  though it works. Note sure if the added complexity from multi-packed template parameters is
-    //  worth it.
     template<
             class T,
             PrimitiveType GLType,

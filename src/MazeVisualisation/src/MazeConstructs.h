@@ -79,19 +79,17 @@ namespace maze {
                    && col < bounds.col;
         }
 
+        constexpr bool has_next(const Index row_max, const Index col_max) {
+            return next(row_max, col_max) != *this;
+        }
+
         constexpr Index2D next(const Index row_max, const Index col_max) const {
             if (col < col_max - 1) {
                 return Index2D{ row, col + 1 };
             } else if (row < row_max - 1) {
                 return Index2D{ row + 1, 0 };
             } else {
-                HERR("[INDEX2D]",
-                     " # Cannot get next index from '{}' to bounds '{}, {}'",
-                     to_string(),
-                     row_max,
-                     col_max
-                );
-                throw std::exception();
+                return *this;
             }
         }
 
@@ -641,11 +639,10 @@ namespace maze {
                 }
             }
 
-            Index2D next = m_CurrentPos.next(maze.get_row_count(), maze.get_col_count());
-            if (next == m_CurrentPos) {
-                m_IsComplete = true;
+            if (m_CurrentPos.has_next(maze.get_row_count(), maze.get_col_count())) {
+                m_CurrentPos = m_CurrentPos.next(maze.get_row_count(), maze.get_col_count());
             } else {
-                m_CurrentPos = next;
+                m_IsComplete = true;
             }
         }
     };
@@ -654,7 +651,7 @@ namespace maze {
     private:
         Index2D  m_Prev{ 0, 0 };
         Index2D  m_Pos{ 0, 0 };
-        Cardinal m_Direction = Cardinal::EAST;
+        Cardinal m_Direction;
 
     public:
         PathSingleDirection(Cardinal dir = Cardinal::WEST) : m_Direction(dir) {}
@@ -678,10 +675,12 @@ namespace maze {
             maze.set_flags(m_Prev, { Flag::GREEN });
 
             // Update State
-            Index2D next = m_Pos.next(maze.get_row_count(), maze.get_col_count());
-            m_Prev       = m_Pos;
-            m_IsComplete = next == m_Pos;
-            m_Pos        = next;
+            if (m_Pos.has_next(maze.get_row_count(), maze.get_col_count())) {
+                m_Prev = m_Pos;
+                m_Pos  = m_Pos.next(maze.get_row_count(), maze.get_col_count());
+            } else {
+                m_IsComplete = true;
+            }
         }
     };
 
@@ -690,10 +689,6 @@ namespace maze {
     //############################################################################//
 
     class RecursiveBacktrackImpl : public AbstractMazeGenerator {
-
-        // TODO: This does not work and for now I do not know why my main assumption is that
-        //  cells are being blacklisted when they shouldn't have. An extra look at the edge walls
-        //  should be done as I feel as if that is the biggest concern.
 
     private:
         std::stack<Index2D> m_Stack{};
@@ -711,6 +706,10 @@ namespace maze {
 
             if (m_Stack.empty()) {
                 m_IsComplete = true;
+                std::for_each(maze.begin(), maze.end(), [&](Cell& item) {
+                    item &= ~cellof<Flag::RED>();
+                    item |= cellof<Flag::GREEN>() | cellof<Flag::BLUE>();
+                });
                 HINFO("[BACKTRACK]", " # Recursive backtracker has finished...");
                 return;
             }
@@ -733,6 +732,7 @@ namespace maze {
                 const auto [dir, cell] = adj_cells.get_random_where(m_Random, is_valid);
                 maze.unset_flags(pos, { Flag::EMPTY_PATH, Flag::RED });
                 maze.set_flags(pos, { Flag::VISITED, Flag::GREEN });
+                maze.set_flags(pos + cardinal_offset(dir), { Flag::VISITED, Flag::GREEN });
                 maze.make_path(pos, dir);
                 m_Stack.emplace(pos + cardinal_offset(dir));
             }
