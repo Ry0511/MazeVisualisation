@@ -50,7 +50,7 @@ namespace maze {
     private:
         float m_MazeGeneratorTimer = 0.0F;
         bool  m_IsPaused           = true;
-        float m_InputPollTimer     = 0.0F;
+        bool  m_IsHeld             = false;
 
     public:
         CubeManager() = default;
@@ -124,14 +124,11 @@ namespace maze {
         void update(float delta, app::Application* app) {
             m_MazeGeneratorTimer += delta;
 
-            if (app->is_key_pressed(Key::SPACE)) {
-                m_InputPollTimer += delta;
-
-                if (m_InputPollTimer > 0.25F) {
-                    m_IsPaused = !m_IsPaused;
-                    HINFO("[CUBE_MAN]", " # Pause State: '{}'", m_IsPaused);
-                    m_InputPollTimer = 0.0F;
-                }
+            if (app->is_key_pressed(Key::SPACE) && !m_IsHeld) {
+                m_IsPaused = !m_IsPaused;
+                m_IsHeld   = true;
+            } else if (!app->is_key_pressed(Key::SPACE)) {
+                m_IsHeld = false;
             }
 
             if (!m_IsPaused && m_MazeGeneratorTimer > 0.005F && !m_MazeGenerator->is_complete()) {
