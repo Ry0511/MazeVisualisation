@@ -6,6 +6,7 @@
 #define MAZEVISUALISATION_MAZECONSTRUCTS_H
 
 #include "Logging.h"
+#include "Renderer/StandardComponents.h"
 
 #include <glm/glm.hpp>
 
@@ -20,6 +21,8 @@ namespace maze {
     //############################################################################//
     // | GLOBAL ALIAS |
     //############################################################################//
+
+    using namespace app::components;
 
     using Cell = uint32_t;
     using Index = int;
@@ -327,6 +330,29 @@ namespace maze {
     };
 
     //############################################################################//
+    // | COMPONENTS |
+    //############################################################################//
+
+    struct CellBase {
+        Cell    cell;
+        Index2D ipos;
+
+        template<class Function>
+        void for_each_wall(Function fn) const {
+            if (ipos.row == 0 && !is_set<Flag::PATH_NORTH>(cell)) fn(Cardinal::NORTH);
+            if (ipos.col == 0 && !is_set<Flag::PATH_WEST>(cell)) fn(Cardinal::WEST);
+            if (!is_set<Flag::PATH_EAST>(cell)) fn(Cardinal::EAST);
+            if (!is_set<Flag::PATH_SOUTH>(cell)) fn(Cardinal::SOUTH);
+        }
+    };
+
+    struct WallBase {
+        Cell cell;
+        Index2D ipos;
+        Cardinal dir;
+    };
+
+    //############################################################################//
     // | MAZE DATA STRUCTURE |
     //############################################################################//
 
@@ -480,6 +506,58 @@ namespace maze {
             }
         }
 
+        void insert_walls_into_ecs(app::Application* app) const {
+            for_each_wall_unique([=](auto dir, auto pos, auto cell){
+                auto entity = app->EntityComponentSystem::create_entity();
+                app->EntityComponentSystem::add_component<Transform>(entity);
+                app->EntityComponentSystem::add_component<WallBase>(entity, cell, pos, dir);
+            });
+        }
+
+        template<class Function>
+        void for_each_cell(Function fn) const {
+            Index2D pos{ 0, 0 };
+            Index   row_max = m_GridSize.row;
+            Index   col_max = m_GridSize.col;
+
+            while (pos.has_next(row_max, col_max)) {
+                fn(pos, get_cell(pos));
+                pos.next(row_max, col_max);
+            }
+        }
+
+        template<class Function>
+        void for_each_wall(Function fn) const {
+            return for_each_cell([=](const Index2D& pos, Cell cell) {
+                if (!is_set<Flag::PATH_NORTH>(cell)) fn(Cardinal::NORTH, pos, cell);
+                if (!is_set<Flag::PATH_EAST>(cell)) fn(Cardinal::EAST, pos, cell);
+                if (!is_set<Flag::PATH_SOUTH>(cell)) fn(Cardinal::SOUTH, pos, cell);
+                if (!is_set<Flag::PATH_WEST>(cell)) fn(Cardinal::WEST, pos, cell);
+            });
+        }
+
+        template<class Function>
+        void for_each_wall_unique(Function fn) const {
+            return for_each_cell([=](const Index2D& pos, Cell cell) {
+
+                // Evaluate North if in Top Row
+                if (!is_set<Flag::PATH_NORTH>(cell)
+                    && pos.row == 0) {
+                    fn(Cardinal::NORTH, pos, cell);
+                }
+
+                // Evaluate West if in First Column (Leftmost column)
+                if (!is_set<Flag::PATH_WEST>(cell)
+                    && pos.col == 0) {
+                    fn(Cardinal::WEST, pos, cell);
+                }
+
+                // Always evaluate East & South
+                if (!is_set<Flag::PATH_EAST>(cell)) fn(Cardinal::EAST, pos, cell);
+                if (!is_set<Flag::PATH_SOUTH>(cell)) fn(Cardinal::SOUTH, pos, cell);
+            });
+        }
+
         //############################################################################//
         // | CELL METHODS |
         //############################################################################//
@@ -502,6 +580,10 @@ namespace maze {
         const Cell get_cell(const Index2D pos) const {
             check_index(pos);
             return m_Cells[pos.flat(m_GridSize)];
+        }
+
+        CellBase get_cell_base(const Index2D pos) const {
+            return CellBase{get_cell(pos), pos};
         }
 
         void set_flags(const Index2D pos, std::initializer_list<Flag> flags) {
