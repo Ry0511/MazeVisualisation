@@ -96,6 +96,13 @@ namespace maze {
         std::string to_string() const {
             return std::format("( {},{} )", row, col);
         }
+
+        struct Hasher {
+            size_t operator ()(const Index2D& i) const noexcept {
+                std::hash<Index> hasher{};
+                return hasher(i.row) ^ (hasher(i.col) << 1);
+            }
+        };
     };
 
     //############################################################################//
@@ -120,8 +127,9 @@ namespace maze {
         TEX_DOOR  = 1 << 10,
 
         // Cell State
-        VISITED = 1 << 11,
-        INVALID = 1 << 12
+        VISITED   = 1 << 11,
+        INVALID   = 1 << 12,
+        PROCESSED = 1 << 13
     };
 
     inline static constexpr Cell s_FlagCount = 13;
@@ -352,7 +360,6 @@ namespace maze {
                 HERR("[MAZE2D]", " # Invalid size '{}'...", m_GridSize.size());
                 throw std::exception();
             }
-
         }
 
         Maze2D(
@@ -417,8 +424,11 @@ namespace maze {
             return cells;
         }
 
-        void fill_path_vec(std::vector<glm::vec3>& vec, std::vector<glm::mat4>& scale_vec,
-                           float offset = 1.0F) const {
+        void fill_path_vec(
+                std::vector<glm::vec3>& vec,
+                std::vector<glm::mat4>& scale_vec,
+                float offset = 1.0F
+        ) const {
 
             auto get_colour = [](const Cell cell) {
                 glm::vec3 c{};
