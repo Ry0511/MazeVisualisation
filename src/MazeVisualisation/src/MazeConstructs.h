@@ -334,39 +334,47 @@ namespace maze {
     // | COMPONENTS |
     //############################################################################//
 
-    struct CellBase {
-        Cell    cell;
-        Index2D ipos;
+    class WallBase {
 
-        glm::vec3 get_colour_vec() const {
-            return glm::vec3{
-                    is_set<Flag::RED>(cell) ? 1.0F : 0.0F,
-                    is_set<Flag::GREEN>(cell) ? 1.0F : 0.0F,
-                    is_set<Flag::BLUE>(cell) ? 1.0F : 0.0F,
-            };
+    private:
+        Index2D  m_Pos;
+        Cardinal m_Dir;
+
+    public:
+        WallBase(const Index2D& pos, const Cardinal dir) : m_Pos(pos), m_Dir(dir) {};
+        WallBase(const WallBase&) = default;
+        WallBase(WallBase&&) = default;
+
+        WallBase& operator =(const WallBase&) = default;
+        WallBase& operator =(WallBase&&) = default;
+
+    public:
+        const Index2D& get_pos() const {
+            return m_Pos;
         }
-    };
 
-    struct WallBase {
-        Index2D  ipos;
-        Cardinal dir;
+        const Cardinal get_wall_dir() const {
+            return m_Dir;
+        }
+
+    public:
 
         glm::vec3 get_pos_vec(const float offset = 1.0F) const {
             float hf = offset * 0.5F;
-            switch (dir) {
+            switch (m_Dir) {
                 case Cardinal::EAST:
-                    return glm::vec3{ ipos.row, offset, ipos.col + hf };
+                    return glm::vec3{ m_Pos.row, offset, m_Pos.col + hf };
                 case Cardinal::SOUTH:
-                    return glm::vec3{ ipos.row + hf, offset, ipos.col };
+                    return glm::vec3{ m_Pos.row + hf, offset, m_Pos.col };
                 case Cardinal::NORTH:
-                    return glm::vec3{ ipos.row - hf, offset, ipos.col };
+                    return glm::vec3{ m_Pos.row - hf, offset, m_Pos.col };
                 case Cardinal::WEST:
-                    return glm::vec3{ ipos.row, offset, ipos.col - hf };
+                    return glm::vec3{ m_Pos.row, offset, m_Pos.col - hf };
             }
         }
 
-        glm::vec3 get_scale_vec(const float offset) {
-            switch (dir) {
+        glm::vec3 get_scale_vec() {
+            switch (m_Dir) {
                 case Cardinal::EAST:
                 case Cardinal::WEST:
                     return glm::vec3{ 0.4, 0.5, 0.1 };
@@ -375,6 +383,7 @@ namespace maze {
                     return glm::vec3{ 0.1, 0.5, 0.4 };
             }
         }
+
     };
 
     //############################################################################//
@@ -475,6 +484,7 @@ namespace maze {
             return cells;
         }
 
+        [[deprecated("To be deleted later...")]]
         void fill_path_vec(
                 std::vector<glm::vec3>& vec,
                 std::vector<glm::mat4>& scale_vec,
@@ -531,12 +541,24 @@ namespace maze {
             }
         }
 
-        void insert_walls_into_ecs(app::Application* app) const {
-            for_each_wall_unique([=](auto dir, auto pos, auto cell) {
-                auto entity = app->EntityComponentSystem::create_entity();
-                app->EntityComponentSystem::add_component<Transform>(entity);
-                app->EntityComponentSystem::add_component<WallBase>(entity, pos, dir);
+        void insert_into_ecs(app::EntityComponentSystem* ecs) const {
+
+            for_each_wall_unique([=](const Cardinal dir, const Index2D& pos, const Cell cell) {
+                auto wall_entity = ecs->create_entity();
+                auto& wall_base = ecs->add_component<WallBase>(wall_entity, pos, dir);
+
+                // Wall Colour
+                auto& render_attrib = ecs->add_component<RenderAttributes>(wall_entity);
+                if (is_set<Flag::RED>(cell)) render_attrib.colour.r   = 1.0F;
+                if (is_set<Flag::GREEN>(cell)) render_attrib.colour.g = 1.0F;
+                if (is_set<Flag::BLUE>(cell)) render_attrib.colour.b  = 1.0F;
+
+                // Initialise Wall Position & Scale
+                auto& transform = ecs->add_component<Transform>(wall_entity);
+                transform.set_pos(wall_base.get_pos_vec());
+                transform.set_scale(wall_base.get_scale_vec());
             });
+
         }
 
         template<class Function>
@@ -605,10 +627,6 @@ namespace maze {
         const Cell get_cell(const Index2D pos) const {
             check_index(pos);
             return m_Cells[pos.flat(m_GridSize)];
-        }
-
-        CellBase get_cell_base(const Index2D pos) const {
-            return CellBase{ get_cell(pos), pos };
         }
 
         void set_flags(const Index2D pos, std::initializer_list<Flag> flags) {
