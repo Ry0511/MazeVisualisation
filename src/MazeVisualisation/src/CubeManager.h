@@ -45,7 +45,7 @@ namespace maze {
         size_t              m_EntityCount   = 0;
         size_t              m_VertexCount   = 0;
         glm::mat4           m_Rotate        = glm::mat4{ 1 };
-        glm::mat4           m_Scale         = glm::scale(glm::mat4{ 1 }, glm::vec3{ 1.2 });
+        glm::mat4           m_Scale         = glm::scale(glm::mat4{ 1 }, glm::vec3{ 1 });
 
     private:
         float m_MazeGeneratorTimer = 0.0F;
@@ -93,28 +93,34 @@ namespace maze {
                     s_VertexDataIndex, 0
             );
 
-            // Cubes
-            std::vector<glm::vec3> cube_position_buffer{};
-            std::vector<glm::mat4> cube_scale_buffer{};
-            m_Maze.fill_path_vec(cube_position_buffer, cube_scale_buffer);
-            m_CubeVao.add_buffer<FloatAttribLayout33>(
-                    init_array_buffer<glm::vec3, BufferAllocUsage::DYNAMIC_DRAW>(
-                            cube_position_buffer.data(),
-                            cube_position_buffer.size()
+            auto& reg = app->get_registry();
+            entt::basic_group group = reg.group<WallBase, Transform, RenderAttributes>();
+            m_Maze.insert_into_ecs(app);
+
+            // Create Model Matrix Buffer
+            m_CubeVao.add_buffer<FloatMat4Attrib>(
+                    init_array_buffer<glm::mat4, BufferAllocUsage::DYNAMIC_DRAW>(
+                            nullptr, m_Maze.get_total_wall_count()
                     ),
                     s_CellDataIndex, 1
             );
 
-            m_CubeVao.add_buffer<FloatMat4Attrib>(
-                    init_array_buffer<glm::mat4, BufferAllocUsage::DYNAMIC_DRAW>(
-                            cube_scale_buffer.data(),
-                            cube_scale_buffer.size()
-                    ),
-                    5U, 1
-            );
-
-            m_EntityCount = cube_position_buffer.size() / 2;
+            // Fill buffer with Wall Model Matrices
+            auto& [buffer, layout] = m_CubeVao.get_buffer(s_CellDataIndex);
+            buffer.bind();
+            group.each([&](Entity id, const WallBase& base, Transform& trans, auto& attrib) {
+                glm::mat4 matrix = trans.get_matrix();
+                buffer.set_range<glm::mat4>(
+                        base.get_index(m_Maze.get_bounds()),
+                        &matrix,
+                        1
+                );
+            });
+            buffer.unbind();
             m_CubeVao.unbind();
+
+            // Entity Count is fixed.
+            m_EntityCount = m_Maze.get_total_wall_count();
         }
 
         //############################################################################//
@@ -135,24 +141,37 @@ namespace maze {
                 m_MazeGenerator->step(m_Maze);
                 m_MazeGeneratorTimer = 0.0F;
 
-                std::vector<glm::vec3> cube_position_buffer{};
-                std::vector<glm::mat4> cube_scale_buffer{};
-                m_Maze.fill_path_vec(cube_position_buffer, cube_scale_buffer);
                 m_CubeVao.bind();
-                auto& [buffer, attrib] = m_CubeVao.get_buffer(s_CellDataIndex);
-                buffer.bind();
-                buffer.set_range<glm::vec3>(0, cube_position_buffer.data(),
-                                            cube_position_buffer.size());
-                buffer.unbind();
+                auto& [model_buffer, layout] = m_CubeVao.get_buffer(s_CellDataIndex);
 
-                auto& [scale_buffer, scale_attrib] = m_CubeVao.get_buffer(5U);
-                scale_buffer.bind();
-                scale_buffer.set_range<glm::mat4>(0, cube_scale_buffer.data(),
-                                                  cube_scale_buffer.size());
-                scale_buffer.unbind();
+                entt::registry& reg = app->get_registry();
+                auto view = reg.view<WallBase, Transform, RenderAttributes>();
+                view.each([&](
+                        Entity id,
+                        WallBase& base,
+                        Transform& trans,
+                        RenderAttributes& attrib
+                ) {
+                    Cell cell = m_Maze.get_cell(base.get_pos());
+                    if (base.get_cell() != cell) {
+                        base.set_cell(cell);
 
+                        trans.set_scale(base.get_scale_vec());
+                        attrib.colour = base.get_colour();
+
+                        model_buffer.bind();
+                        glm::mat4 matrix = trans.get_matrix();
+                        model_buffer.set_range<glm::mat4>(
+                                base.get_index(m_Maze.get_bounds()),
+                                &matrix,
+                                1
+                        );
+                        model_buffer.unbind();
+                    }
+                });
+
+                model_buffer.unbind();
                 m_CubeVao.unbind();
-                m_EntityCount = cube_position_buffer.size() / 2;
             }
         }
 
@@ -184,7 +203,17 @@ namespace maze {
             m_CubeVao.unbind();
             m_CubeShader.disable();
         }
+
+        //############################################################################//
+        // | ECS EVENTS |
+        //############################################################################//
+
+        void on_wall_create() {
+
+        }
+
     };
+
 }
 
 #endif //MAZEVISUALISATION_CUBEMANAGER_H

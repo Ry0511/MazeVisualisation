@@ -95,12 +95,6 @@ namespace app::components {
             set_dirty();
         }
 
-        template<class Function>
-        void mutate(Function fn) {
-            fn(m_Position, m_Rotation, m_Scale);
-            set_dirty();
-        }
-
         virtual void recalc_matrix() {
             m_CachedMatrix = glm::translate(glm::mat4{ 1 }, m_Position)
                              * glm::rotate(glm::mat4{ 1 }, m_Rotation.x, glm::vec3{ 1, 0, 0 })

@@ -16,7 +16,7 @@ class App : public app::Application {
 
 private:
     float       m_Theta     = 0.0F;
-    maze::Index m_MazeSize  = 32;
+    maze::Index m_MazeSize  = 5;
     size_t      m_TickCount = 0;
 
 private:

@@ -334,21 +334,36 @@ namespace maze {
     // | COMPONENTS |
     //############################################################################//
 
+    inline static size_t s_IndexCounter = 0;
+
     class WallBase {
 
     private:
+        Cell     m_Cell;
         Index2D  m_Pos;
+        size_t   m_Index = s_IndexCounter++;
         Cardinal m_Dir;
 
     public:
-        WallBase(const Index2D& pos, const Cardinal dir) : m_Pos(pos), m_Dir(dir) {};
+        WallBase(
+                const Cell cell, const Index2D& pos, const Cardinal dir
+        ) : m_Cell(cell), m_Pos(pos), m_Dir(dir) {};
+
         WallBase(const WallBase&) = default;
         WallBase(WallBase&&) = default;
-
         WallBase& operator =(const WallBase&) = default;
         WallBase& operator =(WallBase&&) = default;
 
     public:
+
+        const Cell get_cell() const {
+            return m_Cell;
+        }
+
+        void set_cell(Cell cell) {
+            m_Cell = cell;
+        }
+
         const Index2D& get_pos() const {
             return m_Pos;
         }
@@ -357,31 +372,58 @@ namespace maze {
             return m_Dir;
         }
 
+        const size_t get_index(const Index2D bounds) const {
+            return m_Index;
+        }
+
     public:
 
         glm::vec3 get_pos_vec(const float offset = 1.0F) const {
+            float x  = m_Pos.row, y = 0.0F, z = m_Pos.col;
             float hf = offset * 0.5F;
             switch (m_Dir) {
                 case Cardinal::EAST:
-                    return glm::vec3{ m_Pos.row, offset, m_Pos.col + hf };
+                    return glm::vec3{ x, y, z + hf };
                 case Cardinal::SOUTH:
-                    return glm::vec3{ m_Pos.row + hf, offset, m_Pos.col };
+                    return glm::vec3{ x + hf, y, z };
                 case Cardinal::NORTH:
-                    return glm::vec3{ m_Pos.row - hf, offset, m_Pos.col };
+                    return glm::vec3{ x - hf, y, z };
                 case Cardinal::WEST:
-                    return glm::vec3{ m_Pos.row, offset, m_Pos.col - hf };
+                    return glm::vec3{ x, y, z - hf };
             }
+
+            throw std::exception();
         }
 
-        glm::vec3 get_scale_vec() {
+        glm::vec3 get_scale_vec() const {
+            glm::vec3 zero{ 0, 0, 0 };
             switch (m_Dir) {
-                case Cardinal::EAST:
-                case Cardinal::WEST:
+                case Cardinal::EAST: {
+                    if (is_set<Flag::PATH_EAST>(m_Cell)) return glm::vec3{ 0.0 };
                     return glm::vec3{ 0.4, 0.5, 0.1 };
-                case Cardinal::SOUTH:
-                case Cardinal::NORTH:
+                }
+                case Cardinal::WEST: {
+                    if (is_set<Flag::PATH_WEST>(m_Cell)) return glm::vec3{ 0.0 };
+                    return glm::vec3{ 0.4, 0.5, 0.1 };
+                }
+                case Cardinal::SOUTH: {
+                    if (is_set<Flag::PATH_WEST>(m_Cell)) return glm::vec3{ 0.0 };
                     return glm::vec3{ 0.1, 0.5, 0.4 };
+                }
+                case Cardinal::NORTH: {
+                    if (is_set<Flag::PATH_NORTH>(m_Cell)) return glm::vec3{ 0.0 };
+                    return glm::vec3{ 0.1, 0.5, 0.4 };
+                }
             }
+            throw std::exception();
+        }
+
+        glm::vec3 get_colour() const {
+            glm::vec3 colour{ 0.0 };
+            if (is_set<Flag::RED>(m_Cell)) colour.r = 1.0F;
+            if (is_set<Flag::RED>(m_Cell)) colour.g = 1.0F;
+            if (is_set<Flag::RED>(m_Cell)) colour.b = 1.0F;
+            return colour;
         }
 
     };
@@ -458,8 +500,17 @@ namespace maze {
             return m_GridSize.col;
         }
 
+        Index2D get_bounds() const {
+            return m_GridSize;
+        }
+
         size_t get_size() const {
             return m_GridSize.size();
+        }
+
+        size_t get_total_wall_count() const {
+            // Haskell: fn r c = r * c * 2 + r + c
+            return get_size() * 2 + get_row_count() + get_col_count();
         }
 
         const Cell* get_cell_data() const {
@@ -543,9 +594,9 @@ namespace maze {
 
         void insert_into_ecs(app::EntityComponentSystem* ecs) const {
 
-            for_each_wall_unique([=](const Cardinal dir, const Index2D& pos, const Cell cell) {
+            for_each_wall_unique([&](const Cardinal dir, const Index2D& pos, const Cell cell) {
                 auto wall_entity = ecs->create_entity();
-                auto& wall_base = ecs->add_component<WallBase>(wall_entity, pos, dir);
+                auto& wall_base = ecs->add_component<WallBase>(wall_entity, cell, pos, dir);
 
                 // Wall Colour
                 auto& render_attrib = ecs->add_component<RenderAttributes>(wall_entity);
@@ -563,19 +614,17 @@ namespace maze {
 
         template<class Function>
         void for_each_cell(Function fn) const {
-            Index2D pos{ 0, 0 };
-            Index   row_max = m_GridSize.row;
-            Index   col_max = m_GridSize.col;
-
-            while (pos.has_next(row_max, col_max)) {
-                fn(pos, get_cell(pos));
-                pos.next(row_max, col_max);
+            for (Index row = 0; row < m_GridSize.row; ++row) {
+                for (Index col = 0; col < m_GridSize.col; ++col) {
+                    Index2D i{row, col};
+                    fn(i, get_cell(i));
+                }
             }
         }
 
         template<class Function>
         void for_each_wall(Function fn) const {
-            return for_each_cell([=](const Index2D& pos, Cell cell) {
+            return for_each_cell([&](const Index2D& pos, Cell cell) {
                 if (!is_set<Flag::PATH_NORTH>(cell)) fn(Cardinal::NORTH, pos, cell);
                 if (!is_set<Flag::PATH_EAST>(cell)) fn(Cardinal::EAST, pos, cell);
                 if (!is_set<Flag::PATH_SOUTH>(cell)) fn(Cardinal::SOUTH, pos, cell);
@@ -585,17 +634,15 @@ namespace maze {
 
         template<class Function>
         void for_each_wall_unique(Function fn) const {
-            return for_each_cell([=](const Index2D& pos, Cell cell) {
+            return for_each_cell([&](const Index2D& pos, Cell cell) {
 
                 // Evaluate North if in Top Row
-                if (!is_set<Flag::PATH_NORTH>(cell)
-                    && pos.row == 0) {
+                if (pos.row == 0 && !is_set<Flag::PATH_NORTH>(cell)) {
                     fn(Cardinal::NORTH, pos, cell);
                 }
 
                 // Evaluate West if in First Column (Leftmost column)
-                if (!is_set<Flag::PATH_WEST>(cell)
-                    && pos.col == 0) {
+                if (pos.col == 0 && !is_set<Flag::PATH_WEST>(cell)) {
                     fn(Cardinal::WEST, pos, cell);
                 }
 
@@ -732,9 +779,7 @@ namespace maze {
         }
 
         void step(Maze2D& maze, unsigned int count) {
-            for (unsigned int i = 0; i < count; ++i) {
-                step(maze);
-            }
+            for (unsigned int i = 0; i < count; ++i) step(maze);
         }
 
     public:
@@ -866,7 +911,7 @@ namespace maze {
             } else {
                 const auto [dir, cell] = adj_cells.get_random_where(m_Random, is_valid);
                 maze.unset_flags(pos, { Flag::EMPTY_PATH, Flag::RED });
-                maze.set_flags(pos, { Flag::VISITED, Flag::GREEN });
+                maze.set_flags(pos, { Flag::VISITED, Flag::GREEN, Flag::MODIFIED });
                 maze.set_flags(pos + cardinal_offset(dir), { Flag::VISITED, Flag::GREEN });
                 maze.make_path(pos, dir);
                 m_Stack.emplace(pos + cardinal_offset(dir));
