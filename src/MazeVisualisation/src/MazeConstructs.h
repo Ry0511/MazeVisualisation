@@ -347,7 +347,6 @@ namespace maze {
     };
 
     struct WallBase {
-        Cell cell;
         Index2D ipos;
         Cardinal dir;
     };
@@ -507,10 +506,10 @@ namespace maze {
         }
 
         void insert_walls_into_ecs(app::Application* app) const {
-            for_each_wall_unique([=](auto dir, auto pos, auto cell){
+            for_each_wall_unique([=](auto dir, auto pos, auto cell) {
                 auto entity = app->EntityComponentSystem::create_entity();
                 app->EntityComponentSystem::add_component<Transform>(entity);
-                app->EntityComponentSystem::add_component<WallBase>(entity, cell, pos, dir);
+                app->EntityComponentSystem::add_component<WallBase>(entity, pos, dir);
             });
         }
 
