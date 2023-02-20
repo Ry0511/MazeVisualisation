@@ -72,12 +72,27 @@ namespace app::components {
             return m_Position;
         }
 
+        void set_pos(const glm::vec3& pos) {
+            m_Position = pos;
+            set_dirty();
+        }
+
         glm::vec3& get_rotation() {
             return m_Rotation;
         }
 
+        void set_rotation(const glm::vec3& rotate) {
+            m_Rotate = rotate;
+            set_dirty();
+        }
+
         glm::vec3& get_scale() {
             return m_Scale;
+        }
+
+        void set_scale(const glm::vec3& scale) {
+            m_Scale = scale;
+            set_dirty();
         }
 
         template<class Function>
