@@ -132,7 +132,8 @@ namespace maze {
         // Cell State
         VISITED   = 1 << 11,
         INVALID   = 1 << 12,
-        PROCESSED = 1 << 13
+        PROCESSED = 1 << 13,
+        MODIFIED  = 1 << 14
     };
 
     inline static constexpr Cell s_FlagCount = 13;
@@ -337,18 +338,43 @@ namespace maze {
         Cell    cell;
         Index2D ipos;
 
-        template<class Function>
-        void for_each_wall(Function fn) const {
-            if (ipos.row == 0 && !is_set<Flag::PATH_NORTH>(cell)) fn(Cardinal::NORTH);
-            if (ipos.col == 0 && !is_set<Flag::PATH_WEST>(cell)) fn(Cardinal::WEST);
-            if (!is_set<Flag::PATH_EAST>(cell)) fn(Cardinal::EAST);
-            if (!is_set<Flag::PATH_SOUTH>(cell)) fn(Cardinal::SOUTH);
+        glm::vec3 get_colour_vec() const {
+            return glm::vec3{
+                    is_set<Flag::RED>(cell) ? 1.0F : 0.0F,
+                    is_set<Flag::GREEN>(cell) ? 1.0F : 0.0F,
+                    is_set<Flag::BLUE>(cell) ? 1.0F : 0.0F,
+            };
         }
     };
 
     struct WallBase {
-        Index2D ipos;
+        Index2D  ipos;
         Cardinal dir;
+
+        glm::vec3 get_pos_vec(const float offset = 1.0F) const {
+            float hf = offset * 0.5F;
+            switch (dir) {
+                case Cardinal::EAST:
+                    return glm::vec3{ ipos.row, offset, ipos.col + hf };
+                case Cardinal::SOUTH:
+                    return glm::vec3{ ipos.row + hf, offset, ipos.col };
+                case Cardinal::NORTH:
+                    return glm::vec3{ ipos.row - hf, offset, ipos.col };
+                case Cardinal::WEST:
+                    return glm::vec3{ ipos.row, offset, ipos.col - hf };
+            }
+        }
+
+        glm::vec3 get_scale_vec(const float offset) {
+            switch (dir) {
+                case Cardinal::EAST:
+                case Cardinal::WEST:
+                    return glm::vec3{ 0.4, 0.5, 0.1 };
+                case Cardinal::SOUTH:
+                case Cardinal::NORTH:
+                    return glm::vec3{ 0.1, 0.5, 0.4 };
+            }
+        }
     };
 
     //############################################################################//
@@ -582,7 +608,7 @@ namespace maze {
         }
 
         CellBase get_cell_base(const Index2D pos) const {
-            return CellBase{get_cell(pos), pos};
+            return CellBase{ get_cell(pos), pos };
         }
 
         void set_flags(const Index2D pos, std::initializer_list<Flag> flags) {
