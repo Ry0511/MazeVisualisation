@@ -82,7 +82,7 @@ namespace app::components {
         }
 
         void set_rotation(const glm::vec3& rotate) {
-            m_Rotate = rotate;
+            m_Rotation = rotate;
             set_dirty();
         }
 
@@ -126,6 +126,31 @@ namespace app::components {
                    && tr.y <= o.tr.y
                    && tr.z <= o.tr.z;
         }
+    };
+
+    //############################################################################//
+    // | MATERIAL SPECIFICS |
+    //############################################################################//
+
+    struct RenderAttributes {
+        glm::vec3 colour;
+    };
+
+    struct Lighting {
+        glm::vec3 ambient, diffuse, specular, emissive;
+        float shininess;
+    };
+
+    //############################################################################//
+    // | ABSTRACT COMPONENTS |
+    //############################################################################//
+
+    struct Initialisable {
+        virtual void init(app::Application* app) = 0;
+    };
+
+    struct Updatable {
+        virtual void update(app::Application* app) = 0;
     };
 
 }
