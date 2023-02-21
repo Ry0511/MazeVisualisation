@@ -38,20 +38,23 @@ namespace maze {
         inline static std::string s_CubeFragmentShader = "Res/Shaders/FragmentShader.glsl";
 
     private:
-        app::Mutable3DModel m_CubeModel     = {};
-        app::Vao            m_CubeVao       = {};
-        app::Shader         m_CubeShader    = {};
-        maze::Maze2D        m_Maze          = Maze2D{ 1, 1 };
-        maze::MazeGenerator m_MazeGenerator = { nullptr };
-        size_t              m_EntityCount   = 0;
-        size_t              m_VertexCount   = 0;
-        glm::mat4           m_Rotate        = glm::mat4{ 1 };
-        glm::mat4           m_Scale         = glm::scale(glm::mat4{ 1 }, glm::vec3{ 1 });
+        app::Mutable3DModel m_CubeModel      = {};
+        app::Vao            m_CubeVao        = {};
+        app::Shader         m_CubeShader     = {};
+        maze::Maze2D        m_Maze           = Maze2D{ 1, 1 };
+        maze::MazeGenerator m_MazeGenerator  = { nullptr };
+        size_t              m_EntityCount    = 0;
+        size_t              m_VertexCount    = 0;
+        size_t              m_StepsPerUpdate = 1;
+        glm::mat4           m_Rotate         = glm::mat4{ 1 };
+        glm::mat4           m_Scale          = glm::scale(glm::mat4{ 1 }, glm::vec3{ 1 });
 
     private:
         float m_MazeGeneratorTimer = 0.0F;
         bool  m_IsPaused           = true;
         bool  m_IsHeld             = false;
+        bool  m_IsEHeld            = false;
+        bool  m_IsQHeld            = false;
 
     public:
         CubeManager() = default;
@@ -157,8 +160,22 @@ namespace maze {
                 m_IsHeld = false;
             }
 
+            if (app->is_key_pressed(Key::E) && !m_IsEHeld) {
+                m_StepsPerUpdate <<= 1;
+                m_IsEHeld = true;
+            } else if (!app->is_key_pressed(Key::E)) {
+                m_IsEHeld = false;
+            }
+
+            if (app->is_key_pressed(Key::Q) && !m_IsQHeld) {
+                m_StepsPerUpdate = std::min(1ULL, m_StepsPerUpdate << 1);
+                m_IsQHeld        = true;
+            } else if (!app->is_key_pressed(Key::Q)) {
+                m_IsQHeld = false;
+            }
+
             if (!m_IsPaused && m_MazeGeneratorTimer > 0.005F && !m_MazeGenerator->is_complete()) {
-                m_MazeGenerator->step(m_Maze);
+                m_MazeGenerator->step(m_Maze, m_StepsPerUpdate);
                 m_MazeGeneratorTimer = 0.0F;
 
                 m_CubeVao.bind();
