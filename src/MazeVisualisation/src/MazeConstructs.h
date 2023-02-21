@@ -228,6 +228,19 @@ namespace maze {
         return -cardinal_offset(dir);
     }
 
+    static std::string cardinal_to_string(const Cardinal dir) {
+        switch (dir) {
+            case Cardinal::NORTH:
+                return "North";
+            case Cardinal::EAST:
+                return "East";
+            case Cardinal::SOUTH:
+                return "South";
+            case Cardinal::WEST:
+                return "West";
+        }
+    }
+
     static constexpr Flag path_flag_for_dir(const Cardinal dir) {
         switch (dir) {
             case Cardinal::NORTH:
@@ -334,20 +347,18 @@ namespace maze {
     // | COMPONENTS |
     //############################################################################//
 
-    inline static size_t s_IndexCounter = 0;
-
     class WallBase {
 
     private:
         Cell     m_Cell;
         Index2D  m_Pos;
-        size_t   m_Index = s_IndexCounter++;
+        size_t   m_Index;
         Cardinal m_Dir;
 
     public:
         WallBase(
-                const Cell cell, const Index2D& pos, const Cardinal dir
-        ) : m_Cell(cell), m_Pos(pos), m_Dir(dir) {};
+                const Cell cell, const Index2D& pos, const Cardinal dir, const size_t index
+        ) : m_Cell(cell), m_Pos(pos), m_Dir(dir), m_Index(index) {};
 
         WallBase(const WallBase&) = default;
         WallBase(WallBase&&) = default;
@@ -372,7 +383,7 @@ namespace maze {
             return m_Dir;
         }
 
-        const size_t get_index(const Index2D bounds) const {
+        const size_t get_index() const {
             return m_Index;
         }
 
@@ -396,22 +407,23 @@ namespace maze {
         }
 
         glm::vec3 get_scale_vec() const {
-            glm::vec3 zero{ 0, 0, 0 };
+            glm::vec3 path_scale{ 0.1, 0.1, 0.1 };
             switch (m_Dir) {
                 case Cardinal::EAST: {
-                    if (is_set<Flag::PATH_EAST>(m_Cell)) return glm::vec3{ 0.0 };
+                    if (is_set<Flag::PATH_EAST>(m_Cell)) return path_scale;
                     return glm::vec3{ 0.4, 0.5, 0.1 };
                 }
                 case Cardinal::WEST: {
-                    if (is_set<Flag::PATH_WEST>(m_Cell)) return glm::vec3{ 0.0 };
+                    if (is_set<Flag::PATH_WEST>(m_Cell)) return path_scale;
+
                     return glm::vec3{ 0.4, 0.5, 0.1 };
                 }
                 case Cardinal::SOUTH: {
-                    if (is_set<Flag::PATH_WEST>(m_Cell)) return glm::vec3{ 0.0 };
+                    if (is_set<Flag::PATH_SOUTH>(m_Cell))return path_scale;
                     return glm::vec3{ 0.1, 0.5, 0.4 };
                 }
                 case Cardinal::NORTH: {
-                    if (is_set<Flag::PATH_NORTH>(m_Cell)) return glm::vec3{ 0.0 };
+                    if (is_set<Flag::PATH_NORTH>(m_Cell)) return path_scale;
                     return glm::vec3{ 0.1, 0.5, 0.4 };
                 }
             }
@@ -420,9 +432,9 @@ namespace maze {
 
         glm::vec3 get_colour() const {
             glm::vec3 colour{ 0.0 };
-            if (is_set<Flag::RED>(m_Cell)) colour.r = 1.0F;
-            if (is_set<Flag::RED>(m_Cell)) colour.g = 1.0F;
-            if (is_set<Flag::RED>(m_Cell)) colour.b = 1.0F;
+            if (is_set<Flag::RED>(m_Cell)) colour.r   = 1.0F;
+            if (is_set<Flag::GREEN>(m_Cell)) colour.g = 1.0F;
+            if (is_set<Flag::BLUE>(m_Cell)) colour.b  = 1.0F;
             return colour;
         }
 
@@ -535,79 +547,23 @@ namespace maze {
             return cells;
         }
 
-        [[deprecated("To be deleted later...")]]
-        void fill_path_vec(
-                std::vector<glm::vec3>& vec,
-                std::vector<glm::mat4>& scale_vec,
-                float offset = 1.0F
-        ) const {
-
-            auto get_colour = [](const Cell cell) {
-                glm::vec3 c{};
-                if (is_set<Flag::RED>(cell)) c.r   = 1.0;
-                if (is_set<Flag::GREEN>(cell)) c.g = 1.0;
-                if (is_set<Flag::BLUE>(cell)) c.b  = 1.0;
-                return c;
-            };
-
-            for (Index row = 0; row < m_GridSize.row; ++row) {
-                for (Index col = 0; col < m_GridSize.col; ++col) {
-                    const Cell cell = get_cell({ row, col });
-
-                    float     x      = row, y = 0.0F, z = col;
-                    glm::vec3 colour = get_colour(cell);
-
-                    // Add Floor
-                    vec.emplace_back(x, y - offset, z);
-                    vec.emplace_back(1.0, 1.0, 1.0);
-                    scale_vec.push_back(glm::scale(glm::mat4{ 1 }, glm::vec3{ 0.5 }));
-
-                    // Evaluate West Path if in far left column
-                    if (col == 0 && !is_set<Flag::PATH_WEST>(cell)) {
-                        vec.emplace_back(x, y, z - (offset * 0.5F));
-                        vec.push_back(colour);
-                        scale_vec.push_back(glm::scale(glm::mat4{ 1 }, glm::vec3{ 0.4, 0.5, 0.1 }));
-                    }
-
-                    // Evaluate North Wall if in Top Row
-                    if (row == 0 && !is_set<Flag::PATH_NORTH>(cell)) {
-                        vec.emplace_back(x - (offset * 0.5F), y, z);
-                        vec.push_back(colour);
-                        scale_vec.push_back(glm::scale(glm::mat4{ 1 }, glm::vec3{ 0.1, 0.5, 0.4 }));
-                    }
-
-                    // Always Evaluate East & South
-                    if (!is_set<Flag::PATH_EAST>(cell)) {
-                        vec.emplace_back(x, y, z + (offset * 0.5F));
-                        vec.push_back(colour);
-                        scale_vec.push_back(glm::scale(glm::mat4{ 1 }, glm::vec3{ 0.4, 0.5, 0.1 }));
-                    }
-
-                    if (!is_set<Flag::PATH_SOUTH>(cell)) {
-                        vec.emplace_back(x + (offset * 0.5F), y, z);
-                        vec.push_back(colour);
-                        scale_vec.push_back(glm::scale(glm::mat4{ 1 }, glm::vec3{ 0.1, 0.5, 0.4 }));
-                    }
-                }
-            }
-        }
-
         void insert_into_ecs(app::EntityComponentSystem* ecs) const {
 
+            size_t index = 0;
             for_each_wall_unique([&](const Cardinal dir, const Index2D& pos, const Cell cell) {
                 auto wall_entity = ecs->create_entity();
-                auto& wall_base = ecs->add_component<WallBase>(wall_entity, cell, pos, dir);
+                auto& wall_base = ecs->add_component<WallBase>(wall_entity, cell, pos, dir, index);
 
                 // Wall Colour
                 auto& render_attrib = ecs->add_component<RenderAttributes>(wall_entity);
-                if (is_set<Flag::RED>(cell)) render_attrib.colour.r   = 1.0F;
-                if (is_set<Flag::GREEN>(cell)) render_attrib.colour.g = 1.0F;
-                if (is_set<Flag::BLUE>(cell)) render_attrib.colour.b  = 1.0F;
+                render_attrib.colour = wall_base.get_colour();
 
                 // Initialise Wall Position & Scale
                 auto& transform = ecs->add_component<Transform>(wall_entity);
                 transform.set_pos(wall_base.get_pos_vec());
                 transform.set_scale(wall_base.get_scale_vec());
+
+                ++index;
             });
 
         }
@@ -616,7 +572,7 @@ namespace maze {
         void for_each_cell(Function fn) const {
             for (Index row = 0; row < m_GridSize.row; ++row) {
                 for (Index col = 0; col < m_GridSize.col; ++col) {
-                    Index2D i{row, col};
+                    Index2D i{ row, col };
                     fn(i, get_cell(i));
                 }
             }
@@ -756,6 +712,53 @@ namespace maze {
             }
 
             HINFO("[MAZE2D]", " # Current Maze State #\n{}", s);
+        }
+
+        void print_debug_str() const {
+            std::string s{};
+
+            for (Index i = 0; i < get_row_count(); ++i) {
+                for (Index j = 0; j < get_col_count(); ++j) {
+                    std::string cell_str{};
+
+                    cell_str.append("P{");
+                    Cell cell = get_cell(Index2D{ i, j });
+
+                    if (is_set<Flag::PATH_NORTH>(cell)) {
+                        cell_str.append("N");
+                    } else {
+                        cell_str.append("_");
+                    }
+
+                    if (is_set<Flag::PATH_EAST>(cell)) {
+                        cell_str.append("E");
+                    } else {
+                        cell_str.append("_");
+                    }
+
+                    if (is_set<Flag::PATH_SOUTH>(cell)) {
+                        cell_str.append("S");
+                    } else {
+                        cell_str.append("_");
+                    }
+
+                    if (is_set<Flag::PATH_WEST>(cell)) {
+                        cell_str.append("W");
+                    } else {
+                        cell_str.append("_");
+                    }
+
+                    s.append(cell_str).append("}");
+
+                    if (j != get_col_count() - 1) {
+                        s.append(", ");
+                    } else {
+                        s.append("\n");
+                    }
+                }
+            }
+
+            HINFO("[PRINT_MAZE]", " #\n{}", s);
         }
     };
 
@@ -911,7 +914,7 @@ namespace maze {
             } else {
                 const auto [dir, cell] = adj_cells.get_random_where(m_Random, is_valid);
                 maze.unset_flags(pos, { Flag::EMPTY_PATH, Flag::RED });
-                maze.set_flags(pos, { Flag::VISITED, Flag::GREEN, Flag::MODIFIED });
+                maze.set_flags(pos, { Flag::VISITED, Flag::GREEN });
                 maze.set_flags(pos + cardinal_offset(dir), { Flag::VISITED, Flag::GREEN });
                 maze.make_path(pos, dir);
                 m_Stack.emplace(pos + cardinal_offset(dir));

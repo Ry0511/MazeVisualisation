@@ -27,8 +27,9 @@ namespace maze {
     class CubeManager {
 
     private:
-        inline static unsigned int s_VertexDataIndex = 0U;
-        inline static unsigned int s_CellDataIndex   = 3U;
+        inline static unsigned int s_VertexDataIndex      = 0U;
+        inline static unsigned int s_ColourIndex          = 3U;
+        inline static unsigned int s_WallModelMatrixIndex = 4U;
 
     private:
         inline static std::string s_CubeObjFile        = "Res/Models/Cube.obj";
@@ -102,21 +103,39 @@ namespace maze {
                     init_array_buffer<glm::mat4, BufferAllocUsage::DYNAMIC_DRAW>(
                             nullptr, m_Maze.get_total_wall_count()
                     ),
-                    s_CellDataIndex, 1
+                    s_WallModelMatrixIndex, 1
             );
 
-            // Fill buffer with Wall Model Matrices
-            auto& [buffer, layout] = m_CubeVao.get_buffer(s_CellDataIndex);
-            buffer.bind();
-            group.each([&](Entity id, const WallBase& base, Transform& trans, auto& attrib) {
+            m_CubeVao.add_buffer<Vec3Attribute>(
+                    init_array_buffer<glm::vec3, app::BufferAllocUsage::DYNAMIC_DRAW>(
+                            nullptr, m_Maze.get_total_wall_count()
+                    ),
+                    s_ColourIndex, 1
+            );
+
+            // Fill Model Matrix and Colour buffers
+            auto& [colour_buffer, colour_layout] = m_CubeVao.get_buffer(s_ColourIndex);
+            auto& [model_matrix, layout]         = m_CubeVao.get_buffer(s_WallModelMatrixIndex);
+            group.each([&](
+                    Entity id,
+                    const WallBase& base,
+                    Transform& trans,
+                    RenderAttributes& attrib
+            ) {
+
+                size_t index = base.get_index();
+
+                // Model Matrix
+                model_matrix.bind();
                 glm::mat4 matrix = trans.get_matrix();
-                buffer.set_range<glm::mat4>(
-                        base.get_index(m_Maze.get_bounds()),
-                        &matrix,
-                        1
-                );
+                model_matrix.set_range<glm::mat4>(index, &matrix, 1);
+                model_matrix.unbind();
+
+                // Colour Buffer
+                colour_buffer.bind();
+                colour_buffer.set_range<glm::vec3>(index, &attrib.colour, 1);
+                colour_buffer.unbind();
             });
-            buffer.unbind();
             m_CubeVao.unbind();
 
             // Entity Count is fixed.
@@ -133,6 +152,7 @@ namespace maze {
             if (app->is_key_pressed(Key::SPACE) && !m_IsHeld) {
                 m_IsPaused = !m_IsPaused;
                 m_IsHeld   = true;
+
             } else if (!app->is_key_pressed(Key::SPACE)) {
                 m_IsHeld = false;
             }
@@ -142,35 +162,36 @@ namespace maze {
                 m_MazeGeneratorTimer = 0.0F;
 
                 m_CubeVao.bind();
-                auto& [model_buffer, layout] = m_CubeVao.get_buffer(s_CellDataIndex);
+                auto& [colour_buffer, colour_layout] = m_CubeVao.get_buffer(s_ColourIndex);
+                auto& [model_buffer, layout]         = m_CubeVao.get_buffer(s_WallModelMatrixIndex);
 
                 entt::registry& reg = app->get_registry();
-                auto view = reg.view<WallBase, Transform, RenderAttributes>();
-                view.each([&](
+                auto group = reg.group<WallBase, Transform, RenderAttributes>();
+                group.each([&](
                         Entity id,
                         WallBase& base,
                         Transform& trans,
                         RenderAttributes& attrib
                 ) {
                     Cell cell = m_Maze.get_cell(base.get_pos());
-                    if (base.get_cell() != cell) {
-                        base.set_cell(cell);
+                    if (cell == base.get_cell()) return;
 
-                        trans.set_scale(base.get_scale_vec());
-                        attrib.colour = base.get_colour();
+                    size_t index = base.get_index();
 
-                        model_buffer.bind();
-                        glm::mat4 matrix = trans.get_matrix();
-                        model_buffer.set_range<glm::mat4>(
-                                base.get_index(m_Maze.get_bounds()),
-                                &matrix,
-                                1
-                        );
-                        model_buffer.unbind();
-                    }
+                    base.set_cell(cell);
+                    trans.set_scale(base.get_scale_vec());
+                    trans.set_pos(base.get_pos_vec());
+                    attrib.colour = base.get_colour();
+
+                    model_buffer.bind();
+                    glm::mat4 matrix = trans.get_matrix();
+                    model_buffer.set_range<glm::mat4>(index, &matrix, 1);
+                    model_buffer.unbind();
+
+                    colour_buffer.bind();
+                    colour_buffer.set_range<glm::vec3>(index, &attrib.colour, 1);
+                    colour_buffer.unbind();
                 });
-
-                model_buffer.unbind();
                 m_CubeVao.unbind();
             }
         }
