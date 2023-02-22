@@ -16,8 +16,7 @@ namespace app {
     // | TYPE ALIAS SIMPLIFICATIONS |
     //############################################################################//
 
-    enum class EntityClass : uint64_t {};
-    using Entity = EntityClass;
+    using Entity = entt::entity;
 
     //############################################################################//
     // | ECS Wrapper Class |
@@ -26,7 +25,7 @@ namespace app {
     class EntityComponentSystem {
 
     private:
-        entt::basic_registry<Entity> m_Registry = entt::basic_registry<Entity>{};
+        entt::registry m_Registry = entt::registry{};
 
     public:
 
@@ -48,6 +47,14 @@ namespace app {
 
         auto is_valid(const Entity entity) const {
             return m_Registry.valid(entity);
+        }
+
+        const auto& get_registry() const {
+            return m_Registry;
+        }
+
+        auto& get_registry() {
+            return m_Registry;
         }
 
         //############################################################################//

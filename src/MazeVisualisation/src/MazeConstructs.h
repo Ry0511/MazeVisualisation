@@ -6,6 +6,7 @@
 #define MAZEVISUALISATION_MAZECONSTRUCTS_H
 
 #include "Logging.h"
+#include "Renderer/StandardComponents.h"
 
 #include <glm/glm.hpp>
 
@@ -20,6 +21,8 @@ namespace maze {
     //############################################################################//
     // | GLOBAL ALIAS |
     //############################################################################//
+
+    using namespace app::components;
 
     using Cell = uint32_t;
     using Index = int;
@@ -96,6 +99,13 @@ namespace maze {
         std::string to_string() const {
             return std::format("( {},{} )", row, col);
         }
+
+        struct Hasher {
+            size_t operator ()(const Index2D& i) const noexcept {
+                std::hash<Index> hasher{};
+                return hasher(i.row) ^ (hasher(i.col) << 1);
+            }
+        };
     };
 
     //############################################################################//
@@ -120,8 +130,10 @@ namespace maze {
         TEX_DOOR  = 1 << 10,
 
         // Cell State
-        VISITED = 1 << 11,
-        INVALID = 1 << 12
+        VISITED   = 1 << 11,
+        INVALID   = 1 << 12,
+        PROCESSED = 1 << 13,
+        MODIFIED  = 1 << 14
     };
 
     inline static constexpr Cell s_FlagCount = 13;
@@ -214,6 +226,19 @@ namespace maze {
 
     static constexpr Index2D reverse(const Cardinal dir) {
         return -cardinal_offset(dir);
+    }
+
+    static std::string cardinal_to_string(const Cardinal dir) {
+        switch (dir) {
+            case Cardinal::NORTH:
+                return "North";
+            case Cardinal::EAST:
+                return "East";
+            case Cardinal::SOUTH:
+                return "South";
+            case Cardinal::WEST:
+                return "West";
+        }
     }
 
     static constexpr Flag path_flag_for_dir(const Cardinal dir) {
@@ -319,6 +344,103 @@ namespace maze {
     };
 
     //############################################################################//
+    // | COMPONENTS |
+    //############################################################################//
+
+    class WallBase {
+
+    private:
+        Cell     m_Cell;
+        Index2D  m_Pos;
+        size_t   m_Index;
+        Cardinal m_Dir;
+
+    public:
+        WallBase(
+                const Cell cell, const Index2D& pos, const Cardinal dir, const size_t index
+        ) : m_Cell(cell), m_Pos(pos), m_Dir(dir), m_Index(index) {};
+
+        WallBase(const WallBase&) = default;
+        WallBase(WallBase&&) = default;
+        WallBase& operator =(const WallBase&) = default;
+        WallBase& operator =(WallBase&&) = default;
+
+    public:
+
+        const Cell get_cell() const {
+            return m_Cell;
+        }
+
+        void set_cell(Cell cell) {
+            m_Cell = cell;
+        }
+
+        const Index2D& get_pos() const {
+            return m_Pos;
+        }
+
+        const Cardinal get_wall_dir() const {
+            return m_Dir;
+        }
+
+        const size_t get_index() const {
+            return m_Index;
+        }
+
+    public:
+
+        glm::vec3 get_pos_vec(const float offset = 1.0F) const {
+            float x  = m_Pos.row, y = 0.0F, z = m_Pos.col;
+            float hf = offset * 0.5F;
+            switch (m_Dir) {
+                case Cardinal::EAST:
+                    return glm::vec3{ x, y, z + hf };
+                case Cardinal::SOUTH:
+                    return glm::vec3{ x + hf, y, z };
+                case Cardinal::NORTH:
+                    return glm::vec3{ x - hf, y, z };
+                case Cardinal::WEST:
+                    return glm::vec3{ x, y, z - hf };
+            }
+
+            throw std::exception();
+        }
+
+        glm::vec3 get_scale_vec() const {
+            glm::vec3 path_scale{ 0.1, 0.1, 0.1 };
+            switch (m_Dir) {
+                case Cardinal::EAST: {
+                    if (is_set<Flag::PATH_EAST>(m_Cell)) return path_scale;
+                    return glm::vec3{ 0.4, 0.5, 0.1 };
+                }
+                case Cardinal::WEST: {
+                    if (is_set<Flag::PATH_WEST>(m_Cell)) return path_scale;
+
+                    return glm::vec3{ 0.4, 0.5, 0.1 };
+                }
+                case Cardinal::SOUTH: {
+                    if (is_set<Flag::PATH_SOUTH>(m_Cell))return path_scale;
+                    return glm::vec3{ 0.1, 0.5, 0.4 };
+                }
+                case Cardinal::NORTH: {
+                    if (is_set<Flag::PATH_NORTH>(m_Cell)) return path_scale;
+                    return glm::vec3{ 0.1, 0.5, 0.4 };
+                }
+            }
+            throw std::exception();
+        }
+
+        glm::vec3 get_colour() const {
+            glm::vec3 colour{ 0.0 };
+            if (is_set<Flag::RED>(m_Cell)) colour.r   = 1.0F;
+            if (is_set<Flag::GREEN>(m_Cell)) colour.g = 1.0F;
+            if (is_set<Flag::BLUE>(m_Cell)) colour.b  = 1.0F;
+            return colour;
+        }
+
+    };
+
+    //############################################################################//
     // | MAZE DATA STRUCTURE |
     //############################################################################//
 
@@ -352,7 +474,6 @@ namespace maze {
                 HERR("[MAZE2D]", " # Invalid size '{}'...", m_GridSize.size());
                 throw std::exception();
             }
-
         }
 
         Maze2D(
@@ -391,8 +512,17 @@ namespace maze {
             return m_GridSize.col;
         }
 
+        Index2D get_bounds() const {
+            return m_GridSize;
+        }
+
         size_t get_size() const {
             return m_GridSize.size();
+        }
+
+        size_t get_total_wall_count() const {
+            // Haskell: fn r c = r * c * 2 + r + c
+            return get_size() * 2 + get_row_count() + get_col_count();
         }
 
         const Cell* get_cell_data() const {
@@ -417,57 +547,65 @@ namespace maze {
             return cells;
         }
 
-        void fill_path_vec(std::vector<glm::vec3>& vec, std::vector<glm::mat4>& scale_vec,
-                           float offset = 1.0F) const {
+        void insert_into_ecs(app::EntityComponentSystem* ecs) const {
 
-            auto get_colour = [](const Cell cell) {
-                glm::vec3 c{};
-                if (is_set<Flag::RED>(cell)) c.r   = 1.0;
-                if (is_set<Flag::GREEN>(cell)) c.g = 1.0;
-                if (is_set<Flag::BLUE>(cell)) c.b  = 1.0;
-                return c;
-            };
+            size_t index = 0;
+            for_each_wall_unique([&](const Cardinal dir, const Index2D& pos, const Cell cell) {
+                auto wall_entity = ecs->create_entity();
+                auto& wall_base = ecs->add_component<WallBase>(wall_entity, cell, pos, dir, index);
 
+                // Wall Colour
+                auto& render_attrib = ecs->add_component<RenderAttributes>(wall_entity);
+                render_attrib.colour = wall_base.get_colour();
+
+                // Initialise Wall Position & Scale
+                auto& transform = ecs->add_component<Transform>(wall_entity);
+                transform.set_pos(wall_base.get_pos_vec());
+                transform.set_scale(wall_base.get_scale_vec());
+
+                ++index;
+            });
+
+        }
+
+        template<class Function>
+        void for_each_cell(Function fn) const {
             for (Index row = 0; row < m_GridSize.row; ++row) {
                 for (Index col = 0; col < m_GridSize.col; ++col) {
-                    const Cell cell = get_cell({ row, col });
-
-                    float     x      = row, y = 0.0F, z = col;
-                    glm::vec3 colour = get_colour(cell);
-
-                    // Add Floor
-                    vec.emplace_back(x, y - offset, z);
-                    vec.emplace_back(1.0, 1.0, 1.0);
-                    scale_vec.push_back(glm::scale(glm::mat4{ 1 }, glm::vec3{ 0.5 }));
-
-                    // Evaluate West Path if in far left column
-                    if (col == 0 && !is_set<Flag::PATH_WEST>(cell)) {
-                        vec.emplace_back(x, y, z - (offset * 0.5F));
-                        vec.push_back(colour);
-                        scale_vec.push_back(glm::scale(glm::mat4{ 1 }, glm::vec3{ 0.4, 0.5, 0.1 }));
-                    }
-
-                    // Evaluate North Wall if in Top Row
-                    if (row == 0 && !is_set<Flag::PATH_NORTH>(cell)) {
-                        vec.emplace_back(x - (offset * 0.5F), y, z);
-                        vec.push_back(colour);
-                        scale_vec.push_back(glm::scale(glm::mat4{ 1 }, glm::vec3{ 0.1, 0.5, 0.4 }));
-                    }
-
-                    // Always Evaluate East & South
-                    if (!is_set<Flag::PATH_EAST>(cell)) {
-                        vec.emplace_back(x, y, z + (offset * 0.5F));
-                        vec.push_back(colour);
-                        scale_vec.push_back(glm::scale(glm::mat4{ 1 }, glm::vec3{ 0.4, 0.5, 0.1 }));
-                    }
-
-                    if (!is_set<Flag::PATH_SOUTH>(cell)) {
-                        vec.emplace_back(x + (offset * 0.5F), y, z);
-                        vec.push_back(colour);
-                        scale_vec.push_back(glm::scale(glm::mat4{ 1 }, glm::vec3{ 0.1, 0.5, 0.4 }));
-                    }
+                    Index2D i{ row, col };
+                    fn(i, get_cell(i));
                 }
             }
+        }
+
+        template<class Function>
+        void for_each_wall(Function fn) const {
+            return for_each_cell([&](const Index2D& pos, Cell cell) {
+                if (!is_set<Flag::PATH_NORTH>(cell)) fn(Cardinal::NORTH, pos, cell);
+                if (!is_set<Flag::PATH_EAST>(cell)) fn(Cardinal::EAST, pos, cell);
+                if (!is_set<Flag::PATH_SOUTH>(cell)) fn(Cardinal::SOUTH, pos, cell);
+                if (!is_set<Flag::PATH_WEST>(cell)) fn(Cardinal::WEST, pos, cell);
+            });
+        }
+
+        template<class Function>
+        void for_each_wall_unique(Function fn) const {
+            return for_each_cell([&](const Index2D& pos, Cell cell) {
+
+                // Evaluate North if in Top Row
+                if (pos.row == 0 && !is_set<Flag::PATH_NORTH>(cell)) {
+                    fn(Cardinal::NORTH, pos, cell);
+                }
+
+                // Evaluate West if in First Column (Leftmost column)
+                if (pos.col == 0 && !is_set<Flag::PATH_WEST>(cell)) {
+                    fn(Cardinal::WEST, pos, cell);
+                }
+
+                // Always evaluate East & South
+                if (!is_set<Flag::PATH_EAST>(cell)) fn(Cardinal::EAST, pos, cell);
+                if (!is_set<Flag::PATH_SOUTH>(cell)) fn(Cardinal::SOUTH, pos, cell);
+            });
         }
 
         //############################################################################//
@@ -575,6 +713,53 @@ namespace maze {
 
             HINFO("[MAZE2D]", " # Current Maze State #\n{}", s);
         }
+
+        void print_debug_str() const {
+            std::string s{};
+
+            for (Index i = 0; i < get_row_count(); ++i) {
+                for (Index j = 0; j < get_col_count(); ++j) {
+                    std::string cell_str{};
+
+                    cell_str.append("P{");
+                    Cell cell = get_cell(Index2D{ i, j });
+
+                    if (is_set<Flag::PATH_NORTH>(cell)) {
+                        cell_str.append("N");
+                    } else {
+                        cell_str.append("_");
+                    }
+
+                    if (is_set<Flag::PATH_EAST>(cell)) {
+                        cell_str.append("E");
+                    } else {
+                        cell_str.append("_");
+                    }
+
+                    if (is_set<Flag::PATH_SOUTH>(cell)) {
+                        cell_str.append("S");
+                    } else {
+                        cell_str.append("_");
+                    }
+
+                    if (is_set<Flag::PATH_WEST>(cell)) {
+                        cell_str.append("W");
+                    } else {
+                        cell_str.append("_");
+                    }
+
+                    s.append(cell_str).append("}");
+
+                    if (j != get_col_count() - 1) {
+                        s.append(", ");
+                    } else {
+                        s.append("\n");
+                    }
+                }
+            }
+
+            HINFO("[PRINT_MAZE]", " #\n{}", s);
+        }
     };
 
     //############################################################################//
@@ -597,9 +782,7 @@ namespace maze {
         }
 
         void step(Maze2D& maze, unsigned int count) {
-            for (unsigned int i = 0; i < count; ++i) {
-                step(maze);
-            }
+            for (unsigned int i = 0; i < count; ++i) step(maze);
         }
 
     public:
