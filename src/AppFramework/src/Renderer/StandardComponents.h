@@ -132,7 +132,7 @@ namespace app::components {
 
     struct Lighting {
         glm::vec3 ambient, diffuse, specular, emissive;
-        float shininess;
+        float     shininess;
     };
 
     //############################################################################//
