@@ -73,7 +73,7 @@ namespace app::components {
 
         template<class Layout, unsigned int Slot, class... Args>
         void add_buffer(SimpleBuffer buffer, Args&& ... args) {
-            static_assert(Slot <= s_MinValidSlot, "The provided slot is invalid.");
+            static_assert(Slot >= s_MinValidSlot, "The provided slot is invalid.");
             m_Vao.bind();
             m_Vao.add_buffer<Layout>(buffer, Slot, args...);
             m_Vao.unbind();
