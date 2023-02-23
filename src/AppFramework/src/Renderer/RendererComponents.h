@@ -44,7 +44,7 @@ namespace app::components {
             m_Shader(shader_base),
             m_FirstIndex(first_index),
             m_VertexCount(m_VertexDataMesh.size() / s_VertexComponentCount),
-            m_InstanceCount(0),
+            m_InstanceCount(instance_count),
             m_Vao({}) {
             HINFO("[CREATE]", " # Triangle Mesh Renderer...");
 
@@ -76,6 +76,16 @@ namespace app::components {
             static_assert(Slot >= s_MinValidSlot, "The provided slot is invalid.");
             m_Vao.bind();
             m_Vao.add_buffer<Layout>(buffer, Slot, args...);
+            m_Vao.unbind();
+        }
+
+        template<class T, unsigned int Slot>
+        void set_buffer_range(void* data, size_t start, size_t count) {
+            m_Vao.bind();
+            auto&[buffer, attrib] = m_Vao.get_buffer(Slot);
+            buffer.bind();
+            buffer.set_range<T>(start, data, count);
+            buffer.unbind();
             m_Vao.unbind();
         }
 
