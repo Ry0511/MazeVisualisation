@@ -143,8 +143,8 @@ namespace maze {
             m_Maze.insert_into_ecs(app);
 
             // Fill Model Matrix and Colour buffers
-            std::vector<glm::mat4> model_buffer{};
-            std::vector<glm::vec3> colour_buffer{};
+            std::vector<glm::mat4> model_buffer{wall_buffer_size, glm::mat4{1}};
+            std::vector<glm::vec3> colour_buffer{wall_buffer_size, glm::vec3{1}};
             group.each([&](
                     Entity id,
                     const WallBase& base,
@@ -152,8 +152,8 @@ namespace maze {
                     RenderAttributes& attrib
             ) {
                 // Initialise Buffers
-                model_buffer.push_back(std::move(trans.get_matrix()));
-                colour_buffer.push_back(attrib.colour);
+                model_buffer[base.get_index()] = std::move(trans.get_matrix());
+                colour_buffer[base.get_index()] = attrib.colour;
             });
 
             // Initialise Colour Buffer
