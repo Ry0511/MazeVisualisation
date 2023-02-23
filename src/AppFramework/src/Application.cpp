@@ -22,7 +22,9 @@ namespace app {
             int width,
             int height
     ) : Window(title.c_str(), width, height),
-        Renderer() {
+        Renderer(),
+        EntityComponentSystem(),
+        Camera3D() {
         INFO("Application Created");
     }
 
@@ -43,9 +45,11 @@ namespace app {
                 auto now = Clock::now();
                 Window::poll_events();
                 swap_buffers();
-                if (!on_update(Chrono::duration<float>(now - before).count())) {
-                    close();
-                }
+
+                float delta = Chrono::duration<float>(now - before).count();
+                camera_update(*this, delta);
+                if (!on_update(delta)) close();
+
                 before = now;
             }
             m_IsRunning    = false;

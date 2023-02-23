@@ -5,21 +5,28 @@ set(CMAKE_CXX_STANDARD 20)
 # Header Files & Source Files
 set(PROJECT_NAME "AppFramework")
 set(AppFramework_HEADER_FILES
-        "src/Logging.h"
-        "src/Window.h"
-        "src/Application.h"
-        "src/Renderer/Buffer.h"
-        "src/Renderer/Renderer.h" src/Renderer/GLUtil.h src/Renderer/VertexArrayObject.h src/Renderer/Shader.h src/Renderer/IndexedVertexObject.h src/Renderer/VertexArrayObjectRedone.h)
+        src/Logging.h
+        src/Window.h
+        src/Application.h
+        src/Renderer/Renderer.h
+        src/Renderer/GLUtil.h
+        src/Renderer/Shader.h
+        src/Camera3D.h
+        src/Renderer/VertexObjectBinding.h
+        src/Renderer/EntityComponentSystem.h
+        src/Renderer/StandardComponents.h
+        src/CommonModelFileReaders.h
+        src/Renderer/RendererComponents.h)
 
 set(AppFramework_SOURCE_FILES
-        "src/Window.cpp"
-        "src/Application.cpp"
-        "src/Renderer/Renderer.cpp")
+        src/Window.cpp
+        src/Application.cpp
+        src/Renderer/Renderer.cpp)
 
 # Project Executable/Library
 add_library(AppFramework SHARED ${AppFramework_HEADER_FILES} ${AppFramework_SOURCE_FILES})
 
-target_include_directories(${PROJECT_NAME} PUBLIC "src")
+target_include_directories(${PROJECT_NAME} PUBLIC src)
 
 ################################################################################
 # | LIBRARIES |
@@ -33,5 +40,8 @@ target_link_libraries(${PROJECT_NAME} PUBLIC glm::glm)
 
 find_package(GLEW REQUIRED)
 target_link_libraries(${PROJECT_NAME} PUBLIC GLEW::GLEW)
+
+find_package(EnTT CONFIG REQUIRED)
+target_link_libraries(${PROJECT_NAME} PUBLIC EnTT::EnTT)
 
 find_package(OpenGL REQUIRED)

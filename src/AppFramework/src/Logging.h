@@ -5,13 +5,6 @@
 #ifndef MAZEVISUALISATION_LOGGING_H
 #define MAZEVISUALISATION_LOGGING_H
 
-#ifdef Debug
-
-#include <format>
-#include <cstdarg>
-#include <iostream>
-#include <chrono>
-
 //############################################################################//
 // | COMPILER SPECIFIC BREAKING |
 //############################################################################//
@@ -21,6 +14,13 @@
 #else
 #define PANIC throw -1
 #endif
+
+#ifdef Logging
+
+#include <format>
+#include <cstdarg>
+#include <iostream>
+#include <chrono>
 
 //############################################################################//
 // | GET TIME |
@@ -69,6 +69,7 @@ static std::string get_time() {
 #define HWARN(header, msg, ...)
 #define ERR(msg, ...)
 #define HERR(header, msg, ...)
+#define ASSERT(condition, msg, ...)
 
 #endif
 

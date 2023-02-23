@@ -9,7 +9,8 @@
 #define MAZEVISUALISATION_RENDERER_H
 
 #include "Logging.h"
-#include "Renderer/VertexArrayObjectRedone.h"
+#include "Renderer/VertexObjectBinding.h"
+
 #include <glm/glm.hpp>
 #include <array>
 
@@ -39,10 +40,17 @@ namespace app {
     public:
         void draw_buffer(DrawMode mode, GLsizei first, GLsizei count);
 
+        void draw_buffer_instanced(
+                DrawMode mode,
+                GLsizei first,
+                GLsizei count,
+                GLsizei instance_count
+        );
+
         void draw_elements(
                 DrawMode mode,
                 GLsizei count,
-                GLPrimitiveType type = GLPrimitiveType::UINT,
+                PrimitiveType type = PrimitiveType::UINT,
                 const GLvoid* indices = (const GLvoid*) 0
         );
 
@@ -50,7 +58,7 @@ namespace app {
                 DrawMode mode,
                 GLsizei count,
                 GLsizei instance_count,
-                GLPrimitiveType type = GLPrimitiveType::UINT,
+                PrimitiveType type = PrimitiveType::UINT,
                 const GLvoid* = (const GLvoid*) 0
         );
     };

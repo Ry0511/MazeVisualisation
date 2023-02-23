@@ -5,7 +5,8 @@ set(CMAKE_CXX_STANDARD 20)
 # Header Files & Source Files
 set(PROJECT_NAME "MazeVisualisation")
 set(MazeVisualisation_HEADER_FILES
-        "")
+        src/CubeManager.h
+        src/MazeConstructs.h)
 set(MazeVisualisation_SOURCE_FILES
         "src/Main.cpp")
 
@@ -14,4 +15,4 @@ add_executable(MazeVisualisation ${MazeVisualisation_HEADER_FILES} ${MazeVisuali
 
 target_link_libraries(${PROJECT_NAME} PRIVATE AppFramework)
 
-file(COPY Res/Shaders DESTINATION ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/Res)
+file(COPY Res DESTINATION ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})

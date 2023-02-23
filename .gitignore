@@ -1,2 +1,7 @@
 /cmake-build-debug-vs2019/
 /cmake-build-release-vs2019/
+/cmake-build-debug-msvc/
+/cmake-build-release-msvc/
+/cmake-build-relwithdebug-vs2019/
+/cmake-build-relwithlogging-vs2019/
+/.idea/statistic.xml

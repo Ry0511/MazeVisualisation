@@ -206,12 +206,23 @@ namespace app {
     glm::vec2 Window::get_mouse_vel(glm::vec2 sens) {
         glm::vec2 pos = get_mouse_pos();
         auto      vel = (m_WindowState.mouse_pos - pos) * sens;
-        vel.y *= -1.F;
         return vel;
     }
 
     void Window::lock_cursor_to_centre(bool is_cursor_locked) {
         m_IsCursorLocked = is_cursor_locked;
+    }
+
+    void Window::compute_key_state(bool* states, std::initializer_list<Key> keys) {
+        size_t i = 0;
+        for (auto key : keys) {
+            states[i]  = is_key_pressed(key);
+            ++i;
+        }
+    }
+
+    bool Window::is_modifier_set(Modifier mod) {
+        return has_modifier(m_WindowState.button_mods, mod);
     }
 
 } // app
