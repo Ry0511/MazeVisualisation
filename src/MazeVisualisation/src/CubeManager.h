@@ -9,6 +9,7 @@
 #include "MazeConstructs.h"
 #include "Renderer/Shader.h"
 #include "Renderer/StandardComponents.h"
+#include "Renderer/RendererComponents.h"
 
 namespace maze {
 
@@ -21,33 +22,63 @@ namespace maze {
     struct Cube {};
 
     //############################################################################//
+    // | MAZE SHADER |
+    //############################################################################//
+
+    class MazeShader : public AbstractShaderBase {
+
+    public:
+        inline static std::string s_CubeVertexShader   = "Res/Shaders/MazeVertexShader.glsl";
+        inline static std::string s_CubeFragmentShader = "Res/Shaders/FragmentShader.glsl";
+
+    private:
+        Shader    m_Shader = {};
+        glm::mat4 m_Rotate = glm::mat4{ 1 };
+        glm::mat4 m_Scale  = glm::mat4{ 1 };
+
+    public:
+        MazeShader() {
+            m_Shader.compile_and_link(s_CubeVertexShader, s_CubeFragmentShader);
+            m_Shader.enable();
+            m_Shader.disable();
+        }
+
+    public:
+        virtual void begin_render(app::Application* app) {
+            m_Shader.enable();
+
+            // Push Uniforms
+            m_Shader.set_uniform(Shader::s_ProjectionMatrixUniform, app->get_proj_matrix());
+            m_Shader.set_uniform(Shader::s_ViewMatrixUniform, app->get_camera_matrix());
+            m_Shader.set_uniform(Shader::s_RotateMatrixUniform, m_Rotate);
+            m_Shader.set_uniform(Shader::s_ScaleMatrixUniform, m_Scale);
+        }
+
+        virtual void end_render(app::Application* app) {
+            m_Shader.disable();
+        }
+    };
+
+    //############################################################################//
     // | CUBE MANAGER CLASS |
     //############################################################################//
 
     class CubeManager {
 
     private:
-        inline static unsigned int s_VertexDataIndex      = 0U;
-        inline static unsigned int s_ColourIndex          = 3U;
-        inline static unsigned int s_WallModelMatrixIndex = 4U;
+        inline static constexpr unsigned int s_ColourIndex          = 3U;
+        inline static constexpr unsigned int s_WallModelMatrixIndex = 4U;
 
     private:
-        inline static std::string s_CubeObjFile        = "Res/Models/Cube.obj";
-        inline static std::string s_TexturedCube       = "Res/Models/TexturedCube.obj";
-        inline static std::string s_CubeVertexShader   = "Res/Shaders/MazeVertexShader.glsl";
-        inline static std::string s_CubeFragmentShader = "Res/Shaders/FragmentShader.glsl";
+        inline static std::string s_CubeObjFile  = "Res/Models/Cube.obj";
+        inline static std::string s_TexturedCube = "Res/Models/TexturedCube.obj";
 
     private:
-        app::Mutable3DModel m_CubeModel      = {};
-        app::Vao            m_CubeVao        = {};
-        app::Shader         m_CubeShader     = {};
-        maze::Maze2D        m_Maze           = Maze2D{ 1, 1 };
-        maze::MazeGenerator m_MazeGenerator  = { nullptr };
-        size_t              m_EntityCount    = 0;
-        size_t              m_VertexCount    = 0;
-        size_t              m_StepsPerUpdate = 1;
-        glm::mat4           m_Rotate         = glm::mat4{ 1 };
-        glm::mat4           m_Scale          = glm::scale(glm::mat4{ 1 }, glm::vec3{ 1 });
+        Mutable3DModel      m_CubeModel          = {};
+        Entity              m_MazeRendererEntity = {};
+        maze::Maze2D        m_Maze               = Maze2D{ 1, 1 };
+        maze::MazeGenerator m_MazeGenerator      = { nullptr };
+        size_t              m_StepsPerUpdate     = 1;
 
     private:
         float m_MazeGeneratorTimer = 0.0F;
@@ -76,73 +107,64 @@ namespace maze {
             // | LOAD VAO OBJECT & SHADERS |
             //############################################################################//
 
-            // Load Shader
-            m_CubeShader.compile_and_link(s_CubeVertexShader, s_CubeFragmentShader);
-
-            // Load Model
             m_CubeModel.clear();
-            app::model_file::read_wavefront_file(s_TexturedCube, m_CubeModel);
-            std::vector<glm::vec3> vertex_data = m_CubeModel.flatten_vertex_data();
-            m_VertexCount = vertex_data.size();
-
-            m_CubeVao.init();
-            m_CubeVao.bind();
-
-            // Vertex: Position, Normal, Texture
-            m_CubeVao.add_buffer<FloatAttribLayout333>(
-                    init_array_buffer<glm::vec3>(
-                            vertex_data.data(),
-                            vertex_data.size()
-                    ),
-                    s_VertexDataIndex, 0
-            );
+            model_file::read_wavefront_file(s_TexturedCube, m_CubeModel);
 
             auto& reg = app->get_registry();
+
+            Entity maze_renderer_entity = app->create_entity();
+            auto   maze_renderer        = reg.emplace<TriangleMeshRenderer>(
+                    maze_renderer_entity,
+                    std::move(m_CubeModel.flatten_vertex_data()),
+                    std::make_shared<MazeShader>(),
+                    0,
+                    m_Maze.get_total_wall_count()
+            );
+
+            size_t wall_buffer_size = m_Maze.get_total_wall_count();
+
+            // Model Matrix Buffer
+            maze_renderer.add_buffer<FloatMat4Attrib, s_WallModelMatrixIndex>(
+                    init_array_buffer<glm::mat4, app::BufferAllocUsage::DYNAMIC_DRAW>(
+                            nullptr, wall_buffer_size
+                    ),
+                    1
+            );
+
+            // Colour Buffer
+            maze_renderer.add_buffer<Vec3Attribute, s_ColourIndex>(
+                    init_array_buffer<glm::vec3, app::BufferAllocUsage::DYNAMIC_DRAW>(
+                            nullptr, wall_buffer_size
+                    ),
+                    1
+            );
+
             entt::basic_group group = reg.group<WallBase, Transform, RenderAttributes>();
             m_Maze.insert_into_ecs(app);
 
-            // Create Model Matrix Buffer
-            m_CubeVao.add_buffer<FloatMat4Attrib>(
-                    init_array_buffer<glm::mat4, BufferAllocUsage::DYNAMIC_DRAW>(
-                            nullptr, m_Maze.get_total_wall_count()
-                    ),
-                    s_WallModelMatrixIndex, 1
-            );
-
-            m_CubeVao.add_buffer<Vec3Attribute>(
-                    init_array_buffer<glm::vec3, app::BufferAllocUsage::DYNAMIC_DRAW>(
-                            nullptr, m_Maze.get_total_wall_count()
-                    ),
-                    s_ColourIndex, 1
-            );
-
             // Fill Model Matrix and Colour buffers
-            auto& [colour_buffer, colour_layout] = m_CubeVao.get_buffer(s_ColourIndex);
-            auto& [model_matrix, layout]         = m_CubeVao.get_buffer(s_WallModelMatrixIndex);
+            std::vector<glm::mat4> model_buffer{};
+            std::vector<glm::vec3> colour_buffer{};
             group.each([&](
                     Entity id,
                     const WallBase& base,
                     Transform& trans,
                     RenderAttributes& attrib
             ) {
-
-                size_t index = base.get_index();
-
-                // Model Matrix
-                model_matrix.bind();
-                glm::mat4 matrix = trans.get_matrix();
-                model_matrix.set_range<glm::mat4>(index, &matrix, 1);
-                model_matrix.unbind();
-
-                // Colour Buffer
-                colour_buffer.bind();
-                colour_buffer.set_range<glm::vec3>(index, &attrib.colour, 1);
-                colour_buffer.unbind();
+                // Initialise Buffers
+                model_buffer.push_back(std::move(trans.get_matrix()));
+                colour_buffer.push_back(attrib.colour);
             });
-            m_CubeVao.unbind();
 
-            // Entity Count is fixed.
-            m_EntityCount = m_Maze.get_total_wall_count();
+            // Initialise Colour Buffer
+            maze_renderer.set_buffer_range<glm::vec3, s_ColourIndex>(
+                    colour_buffer.data(), 0, colour_buffer.size()
+            );
+
+            // Initialise Model Buffer
+            maze_renderer.set_buffer_range<glm::mat4, s_WallModelMatrixIndex>(
+                    model_buffer.data(), 0, model_buffer.size()
+            );
         }
 
         //############################################################################//
@@ -178,9 +200,7 @@ namespace maze {
                 m_MazeGenerator->step(m_Maze, m_StepsPerUpdate);
                 m_MazeGeneratorTimer = 0.0F;
 
-                m_CubeVao.bind();
-                auto& [colour_buffer, colour_layout] = m_CubeVao.get_buffer(s_ColourIndex);
-                auto& [model_buffer, layout]         = m_CubeVao.get_buffer(s_WallModelMatrixIndex);
+                auto renderer = app->get_component<TriangleMeshRenderer>(m_MazeRendererEntity);
 
                 entt::registry& reg = app->get_registry();
                 auto group = reg.group<WallBase, Transform, RenderAttributes>();
@@ -200,16 +220,10 @@ namespace maze {
                     trans.set_pos(base.get_pos_vec());
                     attrib.colour = base.get_colour();
 
-                    model_buffer.bind();
                     glm::mat4 matrix = trans.get_matrix();
-                    model_buffer.set_range<glm::mat4>(index, &matrix, 1);
-                    model_buffer.unbind();
-
-                    colour_buffer.bind();
-                    colour_buffer.set_range<glm::vec3>(index, &attrib.colour, 1);
-                    colour_buffer.unbind();
+                    renderer.set_buffer_range<glm::mat4, s_WallModelMatrixIndex>(&matrix, index, 1);
+                    renderer.set_buffer_range<glm::vec3, s_ColourIndex>(&attrib.colour, index, 1);
                 });
-                m_CubeVao.unbind();
             }
         }
 
@@ -218,36 +232,8 @@ namespace maze {
         //############################################################################//
 
         void render(app::Application* app) {
-
-            // Enable
-            m_CubeShader.enable();
-            m_CubeVao.bind_all();
-
-            // Push Uniforms
-            m_CubeShader.set_uniform(Shader::s_ProjectionMatrixUniform, app->get_proj_matrix());
-            m_CubeShader.set_uniform(Shader::s_ViewMatrixUniform, app->get_camera_matrix());
-            m_CubeShader.set_uniform(Shader::s_RotateMatrixUniform, m_Rotate);
-            m_CubeShader.set_uniform(Shader::s_ScaleMatrixUniform, m_Scale);
-
-            // Instance Render
-            app->draw_buffer_instanced(
-                    app::DrawMode::TRIANGLES,
-                    0,
-                    m_VertexCount,
-                    m_EntityCount
-            );
-
-            // Disable
-            m_CubeVao.unbind();
-            m_CubeShader.disable();
-        }
-
-        //############################################################################//
-        // | ECS EVENTS |
-        //############################################################################//
-
-        void on_wall_create() {
-
+            auto renderer = app->get_component<TriangleMeshRenderer>(m_MazeRendererEntity);
+            renderer.render(app);
         }
 
     };
