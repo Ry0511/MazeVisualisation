@@ -766,6 +766,15 @@ namespace maze {
                 item = cellof<Flag::EMPTY_PATH>();
             });
         }
+
+        void resize(Index2D new_size) {
+            if (new_size.row <= 0 || new_size.col <= 0) {
+                HERR("[MAZE2D]", " # New Maze size '{}' is invalid...", new_size.to_string());
+                throw std::exception();
+            }
+            m_GridSize = new_size;
+            m_Cells.resize(new_size.size(), cellof<Flag::EMPTY_PATH>());
+        }
     };
 
     //############################################################################//
