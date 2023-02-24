@@ -85,11 +85,12 @@ namespace app {
     //############################################################################//
 
     struct WindowState {
-        glm::ivec2 size        = { 0, 0 };
-        glm::ivec2 pos         = { 0, 0 };
-        glm::vec2  mouse_pos   = { 0, 0 };
-        glm::vec2  scroll_pos  = { 0, 0 };
-        int        button_mods = 0;
+        glm::ivec2                                         size        = { 0, 0 };
+        glm::ivec2                                         pos         = { 0, 0 };
+        glm::vec2                                          mouse_pos   = { 0, 0 };
+        glm::vec2                                          scroll_pos  = { 0, 0 };
+        int                                                button_mods = 0;
+        std::unordered_map<int, std::tuple<int, int, int>> key_state_map{};
     };
 
     //############################################################################//
@@ -143,6 +144,7 @@ namespace app {
         glm::vec2 get_mouse_pos();
         glm::vec2 get_mouse_vel(glm::vec2 sens = glm::vec2{ 0.02, 0.02 });
         bool is_key_pressed(Key key);
+        bool is_key_down(Key key);
         void compute_key_state(bool* states, std::initializer_list<Key> keys);
         bool is_modifier_set(Modifier mod);
         bool is_mouse_pressed(MouseButton button);

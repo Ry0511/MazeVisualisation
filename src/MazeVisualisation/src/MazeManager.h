@@ -83,10 +83,7 @@ namespace maze {
 
     private:
         float m_MazeGeneratorTimer = 0.0F;
-        bool  m_IsPaused           = true;
-        bool  m_IsHeld             = false;
-        bool  m_IsEHeld            = false;
-        bool  m_IsQHeld            = false;
+        bool  m_IsPaused           = false;
 
     public:
         MazeManager() = default;
@@ -174,27 +171,11 @@ namespace maze {
         void update(float delta, app::Application* app) {
             m_MazeGeneratorTimer += delta;
 
-            if (app->is_key_pressed(Key::SPACE) && !m_IsHeld) {
-                m_IsPaused = !m_IsPaused;
-                m_IsHeld   = true;
+            // Controls
+            if (app->is_key_down(Key::SPACE)) m_IsPaused   = !m_IsPaused;
+            if (app->is_key_down(Key::E)) m_StepsPerUpdate <<= 1;
+            if (app->is_key_down(Key::Q)) m_StepsPerUpdate = std::min(1ULL, m_StepsPerUpdate << 1);
 
-            } else if (!app->is_key_pressed(Key::SPACE)) {
-                m_IsHeld = false;
-            }
-
-            if (app->is_key_pressed(Key::E) && !m_IsEHeld) {
-                m_StepsPerUpdate <<= 1;
-                m_IsEHeld = true;
-            } else if (!app->is_key_pressed(Key::E)) {
-                m_IsEHeld = false;
-            }
-
-            if (app->is_key_pressed(Key::Q) && !m_IsQHeld) {
-                m_StepsPerUpdate = std::min(1ULL, m_StepsPerUpdate << 1);
-                m_IsQHeld        = true;
-            } else if (!app->is_key_pressed(Key::Q)) {
-                m_IsQHeld = false;
-            }
 
             if (!m_IsPaused && m_MazeGeneratorTimer > 0.005F && !m_MazeGenerator->is_complete()) {
                 m_MazeGenerator->step(m_Maze, m_StepsPerUpdate);
