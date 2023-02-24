@@ -66,7 +66,7 @@ namespace maze {
     class MazeManager {
 
     private:
-        inline static constexpr unsigned int s_InitialSize          = 8;
+        inline static constexpr unsigned int s_InitialSize          = 128;
         inline static constexpr unsigned int s_ColourIndex          = 3U;
         inline static constexpr unsigned int s_WallModelMatrixIndex = 4U;
 
@@ -83,7 +83,7 @@ namespace maze {
 
     private:
         float m_MazeGeneratorTimer = 0.0F;
-        bool  m_IsPaused           = false;
+        bool  m_IsPaused           = true;
 
     public:
         MazeManager() = default;
@@ -172,10 +172,19 @@ namespace maze {
             m_MazeGeneratorTimer += delta;
 
             // Controls
-            if (app->is_key_down(Key::SPACE)) m_IsPaused   = !m_IsPaused;
-            if (app->is_key_down(Key::E)) m_StepsPerUpdate <<= 1;
-            if (app->is_key_down(Key::Q)) m_StepsPerUpdate = std::min(1ULL, m_StepsPerUpdate << 1);
+            if (app->is_key_down(Key::SPACE)) {
+                m_IsPaused = !m_IsPaused;
+            }
 
+            if (app->is_key_down(Key::E)) {
+                m_StepsPerUpdate <<= 1;
+                m_StepsPerUpdate = std::min(1ULL << 16, m_StepsPerUpdate);
+            }
+
+            if (app->is_key_down(Key::Q)) {
+                m_StepsPerUpdate >>= 1;
+                m_StepsPerUpdate = std::max(1ULL, m_StepsPerUpdate);
+            }
 
             if (!m_IsPaused && m_MazeGeneratorTimer > 0.005F && !m_MazeGenerator->is_complete()) {
                 m_MazeGenerator->step(m_Maze, m_StepsPerUpdate);
