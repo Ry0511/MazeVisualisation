@@ -760,6 +760,12 @@ namespace maze {
 
             HINFO("[PRINT_MAZE]", " #\n{}", s);
         }
+
+        void reset() {
+            std::for_each(m_Cells.begin(), m_Cells.end(), [&](auto& item) {
+                item = cellof<Flag::EMPTY_PATH>();
+            });
+        }
     };
 
     //############################################################################//
