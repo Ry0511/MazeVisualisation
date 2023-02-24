@@ -51,7 +51,10 @@ namespace app {
         COMMA  = GLFW_KEY_COMMA,
         PERIOD = GLFW_KEY_PERIOD,
         SLASH  = GLFW_KEY_SLASH,
-        BSLASH = GLFW_KEY_BACKSLASH
+        BSLASH = GLFW_KEY_BACKSLASH,
+
+        MINUS = GLFW_KEY_MINUS,
+        PLUS  = GLFW_KEY_EQUAL,
     };
 
     enum class MouseButton : int {
