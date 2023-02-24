@@ -2,8 +2,8 @@
 // Created by -Ry on 01/02/2023.
 //
 
-#ifndef MAZEVISUALISATION_CUBEMANAGER_H
-#define MAZEVISUALISATION_CUBEMANAGER_H
+#ifndef MAZEVISUALISATION_MAZEMANAGER_H
+#define MAZEVISUALISATION_MAZEMANAGER_H
 
 #include "CommonModelFileReaders.h"
 #include "MazeConstructs.h"
@@ -63,9 +63,10 @@ namespace maze {
     // | CUBE MANAGER CLASS |
     //############################################################################//
 
-    class CubeManager {
+    class MazeManager {
 
     private:
+        inline static constexpr unsigned int s_InitialSize          = 8;
         inline static constexpr unsigned int s_ColourIndex          = 3U;
         inline static constexpr unsigned int s_WallModelMatrixIndex = 4U;
 
@@ -76,7 +77,7 @@ namespace maze {
     private:
         Mutable3DModel      m_CubeModel          = {};
         Entity              m_MazeRendererEntity = {};
-        maze::Maze2D        m_Maze               = Maze2D{ 1, 1 };
+        maze::Maze2D        m_Maze               = Maze2D{ s_InitialSize, s_InitialSize };
         maze::MazeGenerator m_MazeGenerator      = { nullptr };
         size_t              m_StepsPerUpdate     = 1;
 
@@ -88,18 +89,17 @@ namespace maze {
         bool  m_IsQHeld            = false;
 
     public:
-        CubeManager() = default;
-        CubeManager(const CubeManager&) = delete;
-        CubeManager(CubeManager&&) = delete;
+        MazeManager() = default;
+        MazeManager(const MazeManager&) = delete;
+        MazeManager(MazeManager&&) = delete;
 
         //############################################################################//
         // | INITIALISE |
         //############################################################################//
 
     public:
-        void init(app::Application* app, Index rows, Index cols) {
+        void init(app::Application* app) {
 
-            m_Maze          = std::move(Maze2D{ rows, cols });
             m_MazeGenerator = std::move(std::make_unique<RecursiveBacktrackImpl>());
             m_MazeGenerator->init(m_Maze);
 
@@ -143,8 +143,8 @@ namespace maze {
             m_Maze.insert_into_ecs(app);
 
             // Fill Model Matrix and Colour buffers
-            std::vector<glm::mat4> model_buffer{wall_buffer_size, glm::mat4{1}};
-            std::vector<glm::vec3> colour_buffer{wall_buffer_size, glm::vec3{1}};
+            std::vector<glm::mat4> model_buffer{ wall_buffer_size, glm::mat4{ 1 }};
+            std::vector<glm::vec3> colour_buffer{ wall_buffer_size, glm::vec3{ 1 }};
             group.each([&](
                     Entity id,
                     const WallBase& base,
@@ -152,7 +152,7 @@ namespace maze {
                     RenderAttributes& attrib
             ) {
                 // Initialise Buffers
-                model_buffer[base.get_index()] = std::move(trans.get_matrix());
+                model_buffer[base.get_index()]  = std::move(trans.get_matrix());
                 colour_buffer[base.get_index()] = attrib.colour;
             });
 
@@ -240,4 +240,4 @@ namespace maze {
 
 }
 
-#endif //MAZEVISUALISATION_CUBEMANAGER_H
+#endif //MAZEVISUALISATION_MAZEMANAGER_H
