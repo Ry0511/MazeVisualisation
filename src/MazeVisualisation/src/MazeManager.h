@@ -186,6 +186,12 @@ namespace maze {
                 m_StepsPerUpdate = std::max(1ULL, m_StepsPerUpdate);
             }
 
+            if (app->is_key_down(Key::R)) {
+                m_Maze.reset();
+                m_MazeGenerator = std::move(std::make_unique<RecursiveBacktrackImpl>());
+                m_MazeGenerator->init(m_Maze);
+            }
+
             if (!m_IsPaused && m_MazeGeneratorTimer > 0.005F && !m_MazeGenerator->is_complete()) {
                 m_MazeGenerator->step(m_Maze, m_StepsPerUpdate);
                 m_MazeGeneratorTimer = 0.0F;
