@@ -26,7 +26,7 @@ public:
 
     virtual void camera_update(app::Window& window, float delta) override {
         Camera3D::camera_update(window, delta);
-        get_camera_state().cam_pos.y = 20.F;
+        get_camera_state().cam_pos.y = 5.0F;
     }
 
     virtual void on_create() override {
@@ -35,10 +35,11 @@ public:
         GL(glEnable(GL_STENCIL_TEST));
         GL(glEnable(GL_DEPTH_TEST));
         GL(glEnable(GL_CULL_FACE));
+        GL(glEnable(GL_MULTISAMPLE));
         GL(glFrontFace(GL_CCW));
         GL(glCullFace(GL_BACK));
         GL(glPolygonMode(GL_FRONT_AND_BACK, GL_FILL));
-        GL(glLineWidth(4));
+        GL(glLineWidth(1));
 
         // Initialise Managers
         m_MazeManager.init(this);
