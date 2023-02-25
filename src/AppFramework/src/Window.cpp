@@ -35,6 +35,7 @@ namespace app {
 
         glfwWindowHint(GLFW_VERSION_MAJOR, 3);
         glfwWindowHint(GLFW_VERSION_MINOR, 3);
+        glfwWindowHint(GLFW_SAMPLES, 8);
 
         if (s_ActiveWindowCount == 0) {
             glfwSetErrorCallback([](int code, const char* msg) {
