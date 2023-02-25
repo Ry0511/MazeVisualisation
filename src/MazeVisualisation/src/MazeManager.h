@@ -44,7 +44,7 @@ namespace maze {
     private:
         Shader    m_Shader = {};
         glm::mat4 m_Rotate = glm::mat4{ 1 };
-        glm::mat4 m_Scale  = glm::scale(glm::mat4{ 1 }, glm::vec3{ 4, 1.5, 4 });
+        glm::mat4 m_Scale  = glm::scale(glm::mat4{ 1 }, glm::vec3{ 0.25 });
         Entity    m_ManagerEntity;
 
     public:
@@ -167,7 +167,7 @@ namespace maze {
     class MazeManager {
 
     private:
-        inline static constexpr unsigned int s_InitialSize              = 12;
+        inline static constexpr unsigned int s_InitialSize              = 32;
         inline static constexpr float        s_GeneratorUpdateTimeFrame = 0.005F;
 
     private:
@@ -240,8 +240,8 @@ namespace maze {
             // Update Lighting Position & Direction
             Lighting  & lighting  = app->get_registry().get<Lighting>(m_ManagerEntity);
             const auto& cam_state = app->get_camera_state();
-            lighting.pos = cam_state.cam_pos + glm::vec3{ 0.0F, 5.0F, 0.0F };
-            lighting.dir = cam_state.cam_front;
+            lighting.pos = cam_state.cam_pos + glm::vec3{ -0.5F, 1.5F, 0.0F };
+            lighting.dir = -cam_state.cam_front;
 
             update_controls(delta, app);
 
