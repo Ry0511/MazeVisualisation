@@ -161,6 +161,16 @@ namespace maze {
     };
 
     //############################################################################//
+    // | GENERATOR GAME STATE CONTROLLER |
+    //############################################################################//
+
+    struct GeneratorGameState {
+        float               maze_gen_timer   = 0.0F;
+        maze::MazeGenerator maze_generator   = { nullptr };
+        size_t              steps_per_update = 1;
+    };
+
+    //############################################################################//
     // | CUBE MANAGER CLASS |
     //############################################################################//
 
@@ -168,20 +178,17 @@ namespace maze {
 
     private:
         inline static constexpr unsigned int s_InitialSize              = 32;
-        inline static constexpr float        s_GeneratorUpdateTimeFrame = 0.005F;
+        inline static constexpr float        s_GeneratorUpdateTimeFrame = 1.0F / 30.0F;
 
     private:
         Entity        m_ManagerEntity = {};
         maze::Maze2D  m_Maze          = Maze2D{ s_InitialSize, s_InitialSize };
         MazeGameState m_GameState     = MazeGameState::ALGORITHM_GENERATION;
-        float m_Theta = 0.0F;
+        bool          m_IsPaused      = false;
 
         // Updating the Generator
     private:
-        float               m_MazeGeneratorTimer = 0.0F;
-        bool                m_IsPaused           = true;
-        maze::MazeGenerator m_MazeGenerator      = { nullptr };
-        size_t              m_StepsPerUpdate     = 1;
+        GeneratorGameState m_GeneratorState{};
 
     public:
         MazeManager() = default;
@@ -195,8 +202,8 @@ namespace maze {
     public:
         void init(app::Application* app) {
 
-            m_MazeGenerator = std::move(std::make_unique<RecursiveBacktrackImpl>());
-            m_MazeGenerator->init(m_Maze);
+            m_GeneratorState.maze_generator = std::move(std::make_unique<RecursiveBacktrackImpl>());
+            m_GeneratorState.maze_generator->init(m_Maze);
 
             size_t wall_count = m_Maze.get_total_wall_count();
             auto& reg = app->get_registry();
@@ -235,7 +242,6 @@ namespace maze {
         //############################################################################//
 
         void update(float delta, app::Application* app) {
-            m_Theta += delta;
 
             // Update Lighting Position & Direction
             Lighting  & lighting  = app->get_registry().get<Lighting>(m_ManagerEntity);
@@ -243,13 +249,11 @@ namespace maze {
             lighting.pos = cam_state.cam_pos + glm::vec3{ -0.5F, 1.5F, 0.0F };
             lighting.dir = -cam_state.cam_front;
 
-            update_controls(delta, app);
-
             if (m_IsPaused) return;
 
             switch (m_GameState) {
-                [[likely]] case MazeGameState::ALGORITHM_GENERATION: {
-                    if (!m_MazeGenerator->is_complete()) update_generator(delta, app);
+                case MazeGameState::ALGORITHM_GENERATION: {
+                    update_generator(delta, app);
                     break;
                 }
                 case MazeGameState::ALGORITHM_SOLVING: {
@@ -264,42 +268,41 @@ namespace maze {
         }
 
         //############################################################################//
-        // | HANDLE CONTROLS |
+        // | - UPDATE - | MAZE GENERATOR
         //############################################################################//
 
-        void update_controls(float delta, app::Application* app) {
-            if (app->is_key_down(Key::SPACE)) {
-                m_IsPaused = !m_IsPaused;
-            }
+        void update_generator(float delta, app::Application* app) {
+            auto& state = m_GeneratorState;
+            state.maze_gen_timer += delta;
+
+            // Early Returns
+            if (state.maze_gen_timer < s_GeneratorUpdateTimeFrame) return;
+            if (state.maze_generator->is_complete()) return;
+
+            // Controls
+            if (app->is_key_down(Key::SPACE)) m_IsPaused = !m_IsPaused;
 
             if (app->is_key_down(Key::E)) {
-                m_StepsPerUpdate <<= 1;
-                m_StepsPerUpdate = std::min(1ULL << 16, m_StepsPerUpdate);
+                state.steps_per_update <<= 1;
+                state.steps_per_update = std::min(1ULL << 16, state.steps_per_update);
             }
 
             if (app->is_key_down(Key::Q)) {
-                m_StepsPerUpdate >>= 1;
-                m_StepsPerUpdate = std::max(1ULL, m_StepsPerUpdate);
+                state.steps_per_update >>= 1;
+                state.steps_per_update = std::max(1ULL, state.steps_per_update);
             }
 
             if (app->is_key_down(Key::R)) {
                 m_Maze.reset();
-                m_MazeGenerator = std::move(std::make_unique<RecursiveBacktrackImpl>());
-                m_MazeGenerator->init(m_Maze);
+                state.maze_generator = std::move(std::make_unique<RecursiveBacktrackImpl>());
+                state.maze_generator->init(m_Maze);
             }
-        }
 
-        //############################################################################//
-        // | UPDATE / MAZE GENERATOR |
-        //############################################################################//
+            // Step
+            state.maze_generator->step(m_Maze, state.steps_per_update);
+            state.maze_gen_timer = 0.0F;
 
-        void update_generator(float delta, app::Application* app) {
-            m_MazeGeneratorTimer += delta;
-            if (m_MazeGeneratorTimer < s_GeneratorUpdateTimeFrame) return;
-
-            m_MazeGenerator->step(m_Maze, m_StepsPerUpdate);
-            m_MazeGeneratorTimer = 0.0F;
-
+            // Update Visuals
             entt::registry& reg         = app->get_registry();
             auto          & maze_buffer = reg.get<MazeRenderBuffer>(m_ManagerEntity);
             auto group = reg.group<WallBase, Transform, RenderAttributes>();
