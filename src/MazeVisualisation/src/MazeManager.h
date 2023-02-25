@@ -44,13 +44,17 @@ namespace maze {
     private:
         Shader    m_Shader = {};
         glm::mat4 m_Rotate = glm::mat4{ 1 };
-        glm::mat4 m_Scale  = glm::mat4{ 1 };
+        glm::mat4 m_Scale  = glm::scale(glm::mat4{ 1 }, glm::vec3{ 0.25 });
+        Entity    m_ManagerEntity;
 
     public:
-        MazeShader() {
+        MazeShader(Entity manager, app::Application* app) : m_ManagerEntity(manager) {
             m_Shader.compile_and_link(s_CubeVertexShader, s_CubeFragmentShader);
             m_Shader.enable();
             m_Shader.disable();
+
+            // Add the lighting component
+            app->get_registry().emplace<Lighting>(manager);
         }
 
     public:
@@ -62,6 +66,15 @@ namespace maze {
             m_Shader.set_uniform(Shader::s_ViewMatrixUniform, app->get_camera_matrix());
             m_Shader.set_uniform(Shader::s_RotateMatrixUniform, m_Rotate);
             m_Shader.set_uniform(Shader::s_ScaleMatrixUniform, m_Scale);
+
+            // Lighting Uniforms
+            const auto& lighting = app->get_registry().get<Lighting>(m_ManagerEntity);
+            m_Shader.set_uniform("u_LightPos", lighting.pos);
+            m_Shader.set_uniform("u_LightDir", lighting.dir);
+            m_Shader.set_uniform("u_LightColour", lighting.light_colour);
+            m_Shader.set_uniform("u_Ambient", lighting.ambient);
+            m_Shader.set_uniform("u_Specular", lighting.specular);
+            m_Shader.set_uniform("u_Shininess", lighting.shininess);
         }
 
         virtual void end_render(app::Application* app) {
@@ -98,7 +111,7 @@ namespace maze {
             auto maze_renderer = reg.emplace<TriangleMeshRenderer>(
                     m_ManagerEntity,
                     std::move(m_CubeModel.flatten_vertex_data()),
-                    std::make_shared<MazeShader>(),
+                    std::make_shared<MazeShader>(m_ManagerEntity, app),
                     0,
                     wall_count
             );
@@ -154,13 +167,14 @@ namespace maze {
     class MazeManager {
 
     private:
-        inline static constexpr unsigned int s_InitialSize              = 12;
+        inline static constexpr unsigned int s_InitialSize              = 32;
         inline static constexpr float        s_GeneratorUpdateTimeFrame = 0.005F;
 
     private:
         Entity        m_ManagerEntity = {};
         maze::Maze2D  m_Maze          = Maze2D{ s_InitialSize, s_InitialSize };
         MazeGameState m_GameState     = MazeGameState::ALGORITHM_GENERATION;
+        float m_Theta = 0.0F;
 
         // Updating the Generator
     private:
@@ -221,6 +235,14 @@ namespace maze {
         //############################################################################//
 
         void update(float delta, app::Application* app) {
+            m_Theta += delta;
+
+            // Update Lighting Position & Direction
+            Lighting  & lighting  = app->get_registry().get<Lighting>(m_ManagerEntity);
+            const auto& cam_state = app->get_camera_state();
+            lighting.pos = cam_state.cam_pos + glm::vec3{ -0.5F, 1.5F, 0.0F };
+            lighting.dir = -cam_state.cam_front;
+
             update_controls(delta, app);
 
             if (m_IsPaused) return;
