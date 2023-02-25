@@ -4,7 +4,7 @@
 
 #include "Application.h"
 
-#include "CubeManager.h"
+#include "MazeManager.h"
 
 #include "MazeConstructs.h"
 #include "Logging.h"
@@ -16,11 +16,10 @@ class App : public app::Application {
 
 private:
     float       m_Theta     = 0.0F;
-    maze::Index m_MazeSize  = 32;
     size_t      m_TickCount = 0;
 
 private:
-    maze::CubeManager m_CubeManager = {};
+    maze::MazeManager m_MazeManager = {};
 
 public:
     App() : app::Application("My App", 800, 600) {}
@@ -42,7 +41,7 @@ public:
         GL(glLineWidth(4));
 
         // Initialise Managers
-        m_CubeManager.init(this, m_MazeSize, m_MazeSize);
+        m_MazeManager.init(this);
     }
 
     virtual bool on_update(float delta) override {
@@ -60,11 +59,9 @@ public:
         set_viewport(0, 0, size.x, size.y);
         Renderer::clear();
 
-        // Update Managers
-        m_CubeManager.update(delta, this);
-
-        // Render Managers
-        m_CubeManager.render(this);
+        // Update Maze Manager
+        m_MazeManager.update(delta, this);
+        m_MazeManager.render(this);
 
         return true;
     }

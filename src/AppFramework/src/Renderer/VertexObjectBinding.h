@@ -782,11 +782,29 @@ namespace app {
 
         Mutable3DModel() : m_Id(s_MeshCount++) {}
         Mutable3DModel(const Mutable3DModel&) = delete;
-        Mutable3DModel(Mutable3DModel&&) = delete;
+
+        Mutable3DModel(
+                Mutable3DModel&& o
+        ) : m_Id(o.m_Id),
+            m_Vertices(std::move(o.m_Vertices)),
+            m_Normals(std::move(o.m_Normals)),
+            m_TextureCoords(std::move(o.m_TextureCoords)),
+            m_Indices(std::move(o.m_Indices)) {
+
+        };
 
         ~Mutable3DModel() {
             --s_MeshCount;
             HINFO("[MODEL_DELETE]", " # Deleting Model: {}", to_string());
+        }
+
+        Mutable3DModel& operator =(Mutable3DModel&& o) {
+            m_Id            = o.m_Id;
+            m_Vertices      = std::move(o.m_Vertices);
+            m_Normals       = std::move(o.m_Normals);
+            m_TextureCoords = std::move(o.m_TextureCoords);
+            m_Indices       = std::move(o.m_Indices);
+            return *this;
         }
 
         //############################################################################//
