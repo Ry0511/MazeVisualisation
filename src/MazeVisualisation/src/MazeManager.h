@@ -161,13 +161,22 @@ namespace maze {
     };
 
     //############################################################################//
-    // | GENERATOR GAME STATE CONTROLLER |
+    // | MUTABLE GAME STATES |
     //############################################################################//
 
     struct GeneratorGameState {
+        inline static constexpr float        s_GeneratorUpdateTimeFrame = 1.0F / 30.0F;
         float               maze_gen_timer   = 0.0F;
         maze::MazeGenerator maze_generator   = { nullptr };
         size_t              steps_per_update = 1;
+    };
+
+    struct SolverGameState {
+
+    };
+
+    struct PlayerGameState {
+
     };
 
     //############################################################################//
@@ -178,7 +187,6 @@ namespace maze {
 
     private:
         inline static constexpr unsigned int s_InitialSize              = 32;
-        inline static constexpr float        s_GeneratorUpdateTimeFrame = 1.0F / 30.0F;
 
     private:
         Entity        m_ManagerEntity = {};
@@ -189,6 +197,8 @@ namespace maze {
         // Updating the Generator
     private:
         GeneratorGameState m_GeneratorState{};
+        SolverGameState    m_SolverGameState{};
+        PlayerGameState    m_PlayerGameState{};
 
     public:
         MazeManager() = default;
@@ -272,11 +282,12 @@ namespace maze {
         //############################################################################//
 
         void update_generator(float delta, app::Application* app) {
+            app->Camera3D::get_camera_state().cam_pos.y = 20.0F;
             auto& state = m_GeneratorState;
             state.maze_gen_timer += delta;
 
             // Early Returns
-            if (state.maze_gen_timer < s_GeneratorUpdateTimeFrame) return;
+            if (state.maze_gen_timer < GeneratorGameState::s_GeneratorUpdateTimeFrame) return;
             if (state.maze_generator->is_complete()) return;
 
             // Controls
@@ -326,6 +337,22 @@ namespace maze {
                 maze_buffer.update_colour_buffer(app, &attrib.colour, index, 1);
                 maze_buffer.update_model_buffer(app, &matrix, index, 1);
             });
+        }
+
+        //############################################################################//
+        // | - UPDATE - | ALGORITHM SOLVER
+        //############################################################################//
+
+        void update_algorithm_solver(float delta, app::Application* app) {
+            app->Camera3D::get_camera_state().cam_pos.y = 20.0F;
+        }
+
+        //############################################################################//
+        // | - UPDATE - | MANUAL SOLVER
+        //############################################################################//
+
+        void update_player_solver(float delta, app::Application* app) {
+            app->Camera3D::get_camera_state().cam_pos.y = 0.5F;
         }
 
         //############################################################################//
