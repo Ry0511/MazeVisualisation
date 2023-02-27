@@ -44,7 +44,7 @@ namespace maze {
     private:
         Shader    m_Shader = {};
         glm::mat4 m_Rotate = glm::mat4{ 1 };
-        glm::mat4 m_Scale  = glm::scale(glm::mat4{ 1 }, glm::vec3{ 0.25 });
+        glm::mat4 m_Scale  = glm::scale(glm::mat4{ 1 }, glm::vec3{ 1 });
         Entity    m_ManagerEntity;
 
     public:
@@ -259,8 +259,6 @@ namespace maze {
             lighting.pos = cam_state.cam_pos + glm::vec3{ -0.5F, 1.5F, 0.0F };
             lighting.dir = -cam_state.cam_front;
 
-            if (m_IsPaused) return;
-
             switch (m_GameState) {
                 case MazeGameState::ALGORITHM_GENERATION: {
                     update_generator(delta, app);
@@ -292,6 +290,7 @@ namespace maze {
 
             // Controls
             if (app->is_key_down(Key::SPACE)) m_IsPaused = !m_IsPaused;
+            if (m_IsPaused) return;
 
             if (app->is_key_down(Key::E)) {
                 state.steps_per_update <<= 1;
