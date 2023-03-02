@@ -256,8 +256,8 @@ namespace maze {
             // Update Lighting Position & Direction
             Lighting  & lighting  = app->get_registry().get<Lighting>(m_ManagerEntity);
             const auto& cam_state = app->get_camera_state();
-            lighting.pos = cam_state.cam_pos + glm::vec3{ -0.5F, 1.5F, 0.0F };
-            lighting.dir = -cam_state.cam_front;
+            lighting.pos = cam_state.cam_pos + glm::vec3{ 0.0F, -0.05F, 0.05F };
+            lighting.dir = cam_state.cam_world_up;
 
             // Switch game state
             if (app->is_key_down(Key::I)) m_GameState = MazeGameState::ALGORITHM_GENERATION;
