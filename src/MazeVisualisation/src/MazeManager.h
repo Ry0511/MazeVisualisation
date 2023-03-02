@@ -44,7 +44,7 @@ namespace maze {
     private:
         Shader    m_Shader = {};
         glm::mat4 m_Rotate = glm::mat4{ 1 };
-        glm::mat4 m_Scale  = glm::scale(glm::mat4{ 1 }, glm::vec3{ 1 });
+        glm::mat4 m_Scale  = glm::scale(glm::mat4{ 1 }, glm::vec3{ 1, 0.5, 1 });
         Entity    m_ManagerEntity;
 
     public:
@@ -186,7 +186,7 @@ namespace maze {
     class MazeManager {
 
     private:
-        inline static constexpr unsigned int s_InitialSize              = 32;
+        inline static constexpr unsigned int s_InitialSize              = 16;
 
     private:
         Entity        m_ManagerEntity = {};
@@ -259,6 +259,11 @@ namespace maze {
             lighting.pos = cam_state.cam_pos + glm::vec3{ -0.5F, 1.5F, 0.0F };
             lighting.dir = -cam_state.cam_front;
 
+            // Switch game state
+            if (app->is_key_down(Key::I)) m_GameState = MazeGameState::ALGORITHM_GENERATION;
+            if (app->is_key_down(Key::O)) m_GameState = MazeGameState::PLAYER_PLAYING;
+            if (app->is_key_down(Key::P)) m_GameState = MazeGameState::ALGORITHM_SOLVING;
+
             switch (m_GameState) {
                 case MazeGameState::ALGORITHM_GENERATION: {
                     update_generator(delta, app);
@@ -269,7 +274,7 @@ namespace maze {
                     break;
                 }
                 case MazeGameState::PLAYER_PLAYING: {
-                    HINFO("[PLAYER_PLAYING]", " # Not currently implemented...");
+                    update_player_solver(delta, app);
                     break;
                 }
             }
@@ -351,7 +356,7 @@ namespace maze {
         //############################################################################//
 
         void update_player_solver(float delta, app::Application* app) {
-            app->Camera3D::get_camera_state().cam_pos.y = 0.5F;
+            app->Camera3D::get_camera_state().cam_pos.y = 0.05F;
         }
 
         //############################################################################//
