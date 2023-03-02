@@ -411,20 +411,20 @@ namespace maze {
             switch (m_Dir) {
                 case Cardinal::EAST: {
                     if (is_set<Flag::PATH_EAST>(m_Cell)) return path_scale;
-                    return glm::vec3{ 0.4, 0.5, 0.1 };
+                    return glm::vec3{ 0.6, 0.5, 0.1 };
                 }
                 case Cardinal::WEST: {
                     if (is_set<Flag::PATH_WEST>(m_Cell)) return path_scale;
 
-                    return glm::vec3{ 0.4, 0.5, 0.1 };
+                    return glm::vec3{ 0.5, 0.5, 0.1 };
                 }
                 case Cardinal::SOUTH: {
                     if (is_set<Flag::PATH_SOUTH>(m_Cell))return path_scale;
-                    return glm::vec3{ 0.1, 0.5, 0.4 };
+                    return glm::vec3{ 0.1, 0.5, 0.5 };
                 }
                 case Cardinal::NORTH: {
                     if (is_set<Flag::PATH_NORTH>(m_Cell)) return path_scale;
-                    return glm::vec3{ 0.1, 0.5, 0.4 };
+                    return glm::vec3{ 0.1, 0.5, 0.5 };
                 }
             }
             throw std::exception();
