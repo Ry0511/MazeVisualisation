@@ -165,18 +165,22 @@ namespace maze {
     //############################################################################//
 
     struct GeneratorGameState {
-        inline static constexpr float        s_GeneratorUpdateTimeFrame = 1.0F / 30.0F;
-        float               maze_gen_timer   = 0.0F;
-        maze::MazeGenerator maze_generator   = { nullptr };
-        size_t              steps_per_update = 1;
+        inline static constexpr float s_GeneratorUpdateTimeFrame = 1.0F / 20.0F;
+        glm::vec3                     cam_pos                    = glm::vec3{ 0, 15.F, 0 };
+        float                         maze_gen_timer             = 0.0F;
+        maze::MazeGenerator           maze_generator             = { nullptr };
+        size_t                        steps_per_update           = 1;
     };
 
     struct SolverGameState {
-
+        glm::vec3 cam_pos = glm::vec3{ 0, 15.F, 0 };
     };
 
     struct PlayerGameState {
-
+        glm::vec3 cam_pos          = glm::vec3{ 0, 0.1F, 0 };
+        float     cam_speed        = 1.F;
+        float     cam_speed_scalar = 1.25F;
+        glm::vec3 maze_scale       = { 2, 1.5, 2 };
     };
 
     //############################################################################//
@@ -186,19 +190,19 @@ namespace maze {
     class MazeManager {
 
     private:
-        inline static constexpr unsigned int s_InitialSize              = 16;
+        inline static constexpr unsigned int s_InitialSize = 16;
 
     private:
         Entity        m_ManagerEntity = {};
         maze::Maze2D  m_Maze          = Maze2D{ s_InitialSize, s_InitialSize };
         MazeGameState m_GameState     = MazeGameState::ALGORITHM_GENERATION;
-        bool          m_IsPaused      = false;
+        bool          m_IsPaused      = true;
 
-        // Updating the Generator
+        // Game States
     private:
         GeneratorGameState m_GeneratorState{};
-        SolverGameState    m_SolverGameState{};
-        PlayerGameState    m_PlayerGameState{};
+        SolverGameState    m_SolverState{};
+        PlayerGameState    m_PlayingState{};
 
     public:
         MazeManager() = default;
@@ -254,27 +258,45 @@ namespace maze {
         void update(float delta, app::Application* app) {
 
             // Update Lighting Position & Direction
-            Lighting  & lighting  = app->get_registry().get<Lighting>(m_ManagerEntity);
-            const auto& cam_state = app->get_camera_state();
-            lighting.pos = cam_state.cam_pos + glm::vec3{ 0.0F, -0.05F, 0.05F };
-            lighting.dir = cam_state.cam_world_up;
+            Lighting& lighting  = app->get_registry().get<Lighting>(m_ManagerEntity);
+            auto    & cam_state = app->get_camera_state();
+            lighting.pos = cam_state.cam_pos + glm::vec3{ 0, 0.25, 0 };
+            lighting.dir = glm::vec3{ 0, 0.75, 0.1F };
 
             // Switch game state
-            if (app->is_key_down(Key::I)) m_GameState = MazeGameState::ALGORITHM_GENERATION;
-            if (app->is_key_down(Key::O)) m_GameState = MazeGameState::PLAYER_PLAYING;
-            if (app->is_key_down(Key::P)) m_GameState = MazeGameState::ALGORITHM_SOLVING;
+            if (app->is_key_down(Key::I)) {
+                cam_state.cam_pos = m_GeneratorState.cam_pos;
+                m_GameState = MazeGameState::ALGORITHM_GENERATION;
+            }
+
+            if (app->is_key_down(Key::O)) {
+                cam_state.cam_pos          = m_PlayingState.cam_pos;
+                cam_state.cam_speed        = m_PlayingState.cam_speed;
+                cam_state.cam_speed_scalar = m_PlayingState.cam_speed_scalar;
+                m_GameState = MazeGameState::PLAYER_PLAYING;
+            }
+
+            if (app->is_key_down(Key::P)) {
+                cam_state.cam_pos = m_SolverState.cam_pos;
+                m_GameState = MazeGameState::ALGORITHM_SOLVING;
+            }
 
             switch (m_GameState) {
                 case MazeGameState::ALGORITHM_GENERATION: {
+                    cam_state.cam_pos.y = m_GeneratorState.cam_pos.y;
                     update_generator(delta, app);
+                    m_GeneratorState.cam_pos = cam_state.cam_pos;
                     break;
                 }
                 case MazeGameState::ALGORITHM_SOLVING: {
-                    HINFO("[ALGORITHM_SOLVING]", " # Not currently implemented...");
+                    cam_state.cam_pos.y = m_SolverState.cam_pos.y;
+                    m_SolverState.cam_pos = cam_state.cam_pos;
                     break;
                 }
                 case MazeGameState::PLAYER_PLAYING: {
+                    cam_state.cam_pos.y = m_PlayingState.cam_pos.y;
                     update_player_solver(delta, app);
+                    m_PlayingState.cam_pos = cam_state.cam_pos;
                     break;
                 }
             }
@@ -285,7 +307,6 @@ namespace maze {
         //############################################################################//
 
         void update_generator(float delta, app::Application* app) {
-            app->Camera3D::get_camera_state().cam_pos.y = 20.0F;
             auto& state = m_GeneratorState;
             state.maze_gen_timer += delta;
 
@@ -348,7 +369,6 @@ namespace maze {
         //############################################################################//
 
         void update_algorithm_solver(float delta, app::Application* app) {
-            app->Camera3D::get_camera_state().cam_pos.y = 20.0F;
         }
 
         //############################################################################//
@@ -356,7 +376,7 @@ namespace maze {
         //############################################################################//
 
         void update_player_solver(float delta, app::Application* app) {
-            app->Camera3D::get_camera_state().cam_pos.y = 0.05F;
+
         }
 
         //############################################################################//
