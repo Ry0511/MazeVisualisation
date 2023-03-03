@@ -44,7 +44,7 @@ namespace maze {
     private:
         Shader    m_Shader = {};
         glm::mat4 m_Rotate = glm::mat4{ 1 };
-        glm::mat4 m_Scale  = glm::scale(glm::mat4{ 1 }, glm::vec3{ 1, 0.5, 1 });
+        glm::mat4 m_Scale  = glm::scale(glm::mat4{ 1 }, glm::vec3{ 1.25, 0.5, 1.25 });
         Entity    m_ManagerEntity;
 
     public:
@@ -166,21 +166,20 @@ namespace maze {
 
     struct GeneratorGameState {
         inline static constexpr float s_GeneratorUpdateTimeFrame = 1.0F / 20.0F;
-        glm::vec3                     cam_pos                    = glm::vec3{ 0, 15.F, 0 };
+        glm::vec3                     cam_pos                    = glm::vec3{ 0, 25.F, 0 };
         float                         maze_gen_timer             = 0.0F;
         maze::MazeGenerator           maze_generator             = { nullptr };
         size_t                        steps_per_update           = 1;
     };
 
     struct SolverGameState {
-        glm::vec3 cam_pos = glm::vec3{ 0, 15.F, 0 };
+        glm::vec3 cam_pos = glm::vec3{ 0, 25.F, 0 };
     };
 
     struct PlayerGameState {
         glm::vec3 cam_pos          = glm::vec3{ 0, 0.1F, 0 };
-        float     cam_speed        = 1.F;
-        float     cam_speed_scalar = 1.25F;
-        glm::vec3 maze_scale       = { 2, 1.5, 2 };
+        float     cam_speed        = 1.5F;
+        float     cam_speed_scalar = 1.5F;
     };
 
     //############################################################################//
@@ -289,7 +288,7 @@ namespace maze {
                     break;
                 }
                 case MazeGameState::ALGORITHM_SOLVING: {
-                    cam_state.cam_pos.y = m_SolverState.cam_pos.y;
+                    cam_state.cam_pos.y   = m_SolverState.cam_pos.y;
                     m_SolverState.cam_pos = cam_state.cam_pos;
                     break;
                 }
