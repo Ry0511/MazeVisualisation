@@ -167,6 +167,8 @@ namespace maze {
     struct GeneratorGameState {
         inline static constexpr float s_GeneratorUpdateTimeFrame = 1.0F / 20.0F;
         glm::vec3                     cam_pos                    = glm::vec3{ 0, 25.F, 0 };
+        float                         cam_speed                  = app::camera_constants::s_InitialSpeed;
+        float                         cam_speed_scalar           = app::camera_constants::s_InitialSpeedScalar;
         float                         maze_gen_timer             = 0.0F;
         maze::MazeGenerator           maze_generator             = { nullptr };
         size_t                        steps_per_update           = 1;
@@ -264,7 +266,9 @@ namespace maze {
 
             // Switch game state
             if (app->is_key_down(Key::I)) {
-                cam_state.cam_pos = m_GeneratorState.cam_pos;
+                cam_state.cam_pos          = m_GeneratorState.cam_pos;
+                cam_state.cam_speed        = m_GeneratorState.cam_speed;
+                cam_state.cam_speed_scalar = m_GeneratorState.cam_speed_scalar;
                 m_GameState = MazeGameState::ALGORITHM_GENERATION;
             }
 
