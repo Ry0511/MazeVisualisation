@@ -303,6 +303,32 @@ namespace maze {
                     break;
                 }
             }
+
+            // Update
+            auto& reg           = app->get_registry();
+            auto& render_buffer = reg.get<MazeRenderBuffer>(m_ManagerEntity);
+            auto group = app->get_registry().group<WallBase, Transform, RenderAttributes>();
+            group.each([&](
+                    Entity id,
+                    WallBase& base,
+                    Transform& trans,
+                    RenderAttributes& attrib
+            ) {
+                // Update Cell if changed
+                if (!m_Maze.inbounds(base.get_pos())) return;
+                Cell cell = m_Maze.get_cell(base.get_pos());
+                if (base.get_cell() == cell) return;
+                base.set_cell(cell);
+
+                size_t index = base.get_index();
+                trans.set_scale(base.get_scale_vec());
+                trans.set_pos(base.get_pos_vec());
+                attrib.colour = base.get_colour();
+
+                glm::mat4 matrix = trans.get_matrix();
+                render_buffer.update_colour_buffer(app, &attrib.colour, index, 1);
+                render_buffer.update_model_buffer(app, &matrix, index, 1);
+            });
         }
 
         //############################################################################//
@@ -340,31 +366,6 @@ namespace maze {
             // Step
             state.maze_generator->step(m_Maze, state.steps_per_update);
             state.maze_gen_timer = 0.0F;
-
-            // Update Visuals
-            entt::registry& reg         = app->get_registry();
-            auto          & maze_buffer = reg.get<MazeRenderBuffer>(m_ManagerEntity);
-            auto group = reg.group<WallBase, Transform, RenderAttributes>();
-            group.each([&](
-                    Entity id,
-                    WallBase& base,
-                    Transform& trans,
-                    RenderAttributes& attrib
-            ) {
-                Cell cell = m_Maze.get_cell(base.get_pos());
-                if (cell == base.get_cell()) return;
-
-                size_t index = base.get_index();
-
-                base.set_cell(cell);
-                trans.set_scale(base.get_scale_vec());
-                trans.set_pos(base.get_pos_vec());
-                attrib.colour = base.get_colour();
-
-                glm::mat4 matrix = trans.get_matrix();
-                maze_buffer.update_colour_buffer(app, &attrib.colour, index, 1);
-                maze_buffer.update_model_buffer(app, &matrix, index, 1);
-            });
         }
 
         //############################################################################//
@@ -379,7 +380,6 @@ namespace maze {
         //############################################################################//
 
         void update_player_solver(float delta, app::Application* app) {
-
         }
 
         //############################################################################//
