@@ -23,7 +23,6 @@ namespace app {
             int height
     ) : Window(title.c_str(), width, height),
         Renderer(),
-        EntityComponentSystem(),
         Camera3D() {
         INFO("Application Created");
     }

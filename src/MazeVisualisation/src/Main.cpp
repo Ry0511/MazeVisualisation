@@ -10,16 +10,11 @@
 #include "Logging.h"
 #include "Renderer/GLUtil.h"
 
-using namespace app::components;
-
 class App : public app::Application {
 
 private:
     float       m_Theta     = 0.0F;
     size_t      m_TickCount = 0;
-
-private:
-    maze::MazeManager m_MazeManager = {};
 
 public:
     App() : app::Application("My App", 800, 600) {}
@@ -40,8 +35,7 @@ public:
         GL(glPolygonMode(GL_FRONT_AND_BACK, GL_FILL));
         GL(glLineWidth(1));
 
-        // Initialise Managers
-        m_MazeManager.init(this);
+        // Initiate Components
     }
 
     virtual bool on_update(float delta) override {
@@ -58,10 +52,6 @@ public:
         const glm::ivec2& size = get_window_size();
         set_viewport(0, 0, size.x, size.y);
         Renderer::clear();
-
-        // Update Maze Manager
-        m_MazeManager.update(delta, this);
-        m_MazeManager.render(this);
 
         return true;
     }

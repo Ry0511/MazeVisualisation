@@ -6,7 +6,6 @@
 #define MAZEVISUALISATION_MAZECONSTRUCTS_H
 
 #include "Logging.h"
-#include "Renderer/StandardComponents.h"
 
 #include <glm/glm.hpp>
 
@@ -21,8 +20,6 @@ namespace maze {
     //############################################################################//
     // | GLOBAL ALIAS |
     //############################################################################//
-
-    using namespace app::components;
 
     using Cell = uint32_t;
     using Index = int;
@@ -547,26 +544,26 @@ namespace maze {
             return cells;
         }
 
-        void insert_into_ecs(app::EntityComponentSystem* ecs) const {
-
-            size_t index = 0;
-            for_each_wall_unique([&](const Cardinal dir, const Index2D& pos, const Cell cell) {
-                auto wall_entity = ecs->create_entity();
-                auto& wall_base = ecs->add_component<WallBase>(wall_entity, cell, pos, dir, index);
-
-                // Wall Colour
-                auto& render_attrib = ecs->add_component<RenderAttributes>(wall_entity);
-                render_attrib.colour = wall_base.get_colour();
-
-                // Initialise Wall Position & Scale
-                auto& transform = ecs->add_component<Transform>(wall_entity);
-                transform.set_pos(wall_base.get_pos_vec());
-                transform.set_scale(wall_base.get_scale_vec());
-
-                ++index;
-            });
-
-        }
+//        void insert_into_ecs(app::EntityComponentSystem* ecs) const {
+//
+//            size_t index = 0;
+//            for_each_wall_unique([&](const Cardinal dir, const Index2D& pos, const Cell cell) {
+//                auto wall_entity = ecs->create_entity();
+//                auto& wall_base = ecs->add_component<WallBase>(wall_entity, cell, pos, dir, index);
+//
+//                // Wall Colour
+//                auto& render_attrib = ecs->add_component<RenderAttributes>(wall_entity);
+//                render_attrib.colour = wall_base.get_colour();
+//
+//                // Initialise Wall Position & Scale
+//                auto& transform = ecs->add_component<Transform>(wall_entity);
+//                transform.set_pos(wall_base.get_pos_vec());
+//                transform.set_scale(wall_base.get_scale_vec());
+//
+//                ++index;
+//            });
+//
+//        }
 
         template<class Function>
         void for_each_cell(Function fn) const {
