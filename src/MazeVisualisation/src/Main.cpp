@@ -35,7 +35,6 @@ public:
         GL(glPolygonMode(GL_FRONT_AND_BACK, GL_FILL));
         GL(glLineWidth(1));
 
-        // Initiate Components
     }
 
     virtual bool on_update(float delta) override {
