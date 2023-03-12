@@ -1,4 +1,4 @@
- //
+//
 // Created by -Ry on 26/01/2023.
 //
 
@@ -19,7 +19,7 @@ namespace app {
         GLuint program_id = 0;
 
         ~ShaderState() {
-            HINFO("[SHDAER_DESTROY]", " # Delete Shader Program '{}'", program_id);
+            HINFO("[SHADER_DESTROY]", " # Delete Shader Program '{}'", program_id);
             GL(glDeleteProgram(program_id));
         }
     };
@@ -35,11 +35,20 @@ namespace app {
         inline static const std::string s_RotateMatrixUniform     = "u_RotateMatrix";
         inline static const std::string s_ScaleMatrixUniform      = "u_ScaleMatrix";
 
+        // Lighting/Shading Uniforms
+        inline static const std::string s_LightPosUniform    = "u_LightPos";
+        inline static const std::string s_LightDirUniform    = "u_LightDir";
+        inline static const std::string s_LightColourUniform = "u_LightColour";
+        inline static const std::string s_AmbientUniform     = "u_Ambient";
+        inline static const std::string s_SpecularUniform    = "u_Specular";
+        inline static const std::string s_ShininessUniform   = "u_Shininess";
+
+
     private:
         inline static GLuint s_EnabledShaderProgram = 0;
 
     private:
-        std::shared_ptr<ShaderState> m_ShaderProgram{};
+        std::shared_ptr<ShaderState> m_ShaderProgram = std::make_shared<ShaderState>();
 
     public:
         static std::string read_file_to_string(
@@ -63,11 +72,6 @@ namespace app {
 
     public:
         Shader() = default;
-
-        ~Shader() {
-            HINFO("[SHDAER_DESTROY]", " # Destroying Shader '{}'", (*m_ShaderProgram).program_id);
-            GL(glDeleteProgram((*m_ShaderProgram).program_id));
-        }
 
     private:
         __forceinline static GLuint compile_shader(
@@ -111,9 +115,11 @@ namespace app {
 
             // Compile Shaders
             INFO("Compiling Vertex Shader.");
-            GLint v_shader = compile_shader(read_file_to_string(v_source).c_str(), GL_VERTEX_SHADER);
+            GLint v_shader = compile_shader(read_file_to_string(v_source).c_str(),
+                                            GL_VERTEX_SHADER);
             INFO("Compiling Fragment Shader.");
-            GLint f_shader = compile_shader(read_file_to_string(f_source).c_str(), GL_FRAGMENT_SHADER);
+            GLint f_shader = compile_shader(read_file_to_string(f_source).c_str(),
+                                            GL_FRAGMENT_SHADER);
 
             // Create the Shader Program
             (*m_ShaderProgram).program_id = GL(glCreateProgram());
@@ -143,6 +149,7 @@ namespace app {
     public:
 
         bool is_init() const {
+            ASSERT(m_ShaderProgram, "Shader Program Should never be null...");
             return (*m_ShaderProgram).program_id != 0;
         }
 

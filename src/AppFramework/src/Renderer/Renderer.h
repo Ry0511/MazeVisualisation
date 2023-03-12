@@ -25,6 +25,9 @@ namespace app {
     class RenderGroup {
 
     public:
+        using Functor = std::function<bool(RenderGroup&, Vao&, Shader&)>;
+
+    public:
         inline static constexpr unsigned int s_VertexLayoutIndex      = 0U;
         inline static constexpr unsigned int s_ColourLayoutIndex      = 3U;
         inline static constexpr unsigned int s_EntityModelLayoutIndex = 4U;
@@ -36,6 +39,7 @@ namespace app {
         Shader                 m_Shader;
         std::vector<Entity>    m_Entities;
         std::stack<Entity>     m_EntitiesToAdd;
+        std::vector<Functor>   m_GroupFunctors;
 
     public:
         RenderGroup(
@@ -44,39 +48,59 @@ namespace app {
                 const std::string& frag_src,
                 size_t entity_count = 1
         ) : m_Model(std::move(model)),
-            m_VertexData(m_Model.flatten_vertex_data()),
+            m_VertexData(std::move(m_Model.flatten_vertex_data())),
             m_Vao(),
             m_Shader(),
-            m_Entities() {
+            m_Entities(),
+            m_EntitiesToAdd(),
+            m_GroupFunctors() {
 
             m_Entities.reserve(entity_count);
 
+            // Compile Shader
+            m_Shader.compile_and_link(shader_src, frag_src);
+            m_Shader.enable();
+            m_Shader.disable();
+
+            // Create VAO Buffers
             m_Vao.init();
             m_Vao.bind_all();
 
             // Vertex Buffer (Position, Normal, Texture)
             m_Vao.add_buffer<FloatAttribLayout333>(
                     init_array_buffer<glm::vec3>(m_VertexData.data(), m_VertexData.size()),
-                    s_VertexLayoutIndex
+                    s_VertexLayoutIndex, 0
             );
 
             constexpr BufferAllocUsage dynamic_usage = BufferAllocUsage::DYNAMIC_DRAW;
 
             // Colour Buffer
             m_Vao.add_buffer<Vec3Attribute>(
-                    init_array_buffer<glm::vec3, dynamic_usage>(nullptr, m_Entities.size()),
-                    s_ColourLayoutIndex
+                    init_array_buffer<glm::vec3, dynamic_usage>(nullptr, entity_count),
+                    s_ColourLayoutIndex, 1
             );
 
             // Model Matrix Buffer
             m_Vao.add_buffer<FloatMat4Attrib>(
-                    init_array_buffer<glm::mat4, dynamic_usage>(nullptr, m_Entities.size()),
-                    s_EntityModelLayoutIndex
+                    init_array_buffer<glm::mat4, dynamic_usage>(nullptr, entity_count),
+                    s_EntityModelLayoutIndex, 1
             );
 
             m_Vao.unbind();
 
         }
+
+        RenderGroup(const RenderGroup&) = delete;
+
+        RenderGroup(RenderGroup&& o) : m_Model(std::move(o.m_Model)),
+                                       m_VertexData(std::move(o.m_VertexData)),
+                                       m_Vao(o.m_Vao),
+                                       m_Shader(o.m_Shader),
+                                       m_Entities(std::move(o.m_Entities)),
+                                       m_EntitiesToAdd(std::move(o.m_EntitiesToAdd)),
+                                       m_GroupFunctors(std::move(o.m_GroupFunctors)) {
+
+        };
 
         //############################################################################//
         // | GETTING DATA |
@@ -113,6 +137,10 @@ namespace app {
             return m_Entities.at(index);
         }
 
+        void add_group_functor(Functor fn) {
+            m_GroupFunctors.push_back(fn);
+        }
+
         //############################################################################//
         // | REALLOCATING DATA |
         //############################################################################//
@@ -120,7 +148,7 @@ namespace app {
     public:
 
         void realloc_entities() {
-            m_Vao.bind();
+            m_Vao.bind_all();
             std::vector<glm::mat4> temp_matrices{};
             std::vector<glm::vec3> temp_colours{};
             for (Entity& e : m_Entities) {
@@ -138,19 +166,28 @@ namespace app {
                     temp_colours.data(), temp_colours.size(), s_ColourLayoutIndex
             );
             m_Vao.unbind();
+
+            HINFO(
+                    "[REALLOC_ENTITIES]",
+                    " # Reallocated Entity Buffer to {} (Model Matrices & Colours).",
+                    temp_colours.size()
+            );
         }
 
         void realloc_entity(Entity& entity, size_t index) {
             auto& [model_buffer, model_slot]   = m_Vao.get_buffer(s_EntityModelLayoutIndex);
             auto& [colour_buffer, colour_slot] = m_Vao.get_buffer(s_ColourLayoutIndex);
 
+            const glm::mat4& model = entity.get_matrix();
+            const glm::vec3& colour = entity.get_render_attributes().colour;
+
             m_Vao.bind_all();
             model_buffer.bind();
-            model_buffer.set_range<glm::mat4>(index, &entity.get_matrix(), 1);
+            model_buffer.set_range<glm::mat4>(index, &model, 1);
             model_buffer.unbind();
 
             colour_buffer.bind();
-            colour_buffer.set_range<glm::vec3>(index, &entity.get_render_attributes().colour, 1);
+            colour_buffer.set_range<glm::vec3>(index, &colour, 1);
             colour_buffer.unbind();
 
             m_Vao.unbind();
@@ -176,6 +213,7 @@ namespace app {
 
         void update_entities() {
 
+            // This block is expensive and as such should not be executed often
             bool is_realloc = false;
             while (!m_EntitiesToAdd.empty()) {
                 is_realloc = true;
@@ -184,18 +222,25 @@ namespace app {
                 m_Entities.push_back(std::move(e));
                 m_EntitiesToAdd.pop();
             }
-
             if (is_realloc) realloc_entities();
 
             m_Vao.bind_all();
             m_Shader.enable();
+
+            // Update Group Functors
+            for (size_t i = 0; i < m_GroupFunctors.size(); ++i) {
+                m_GroupFunctors[i](*this, m_Vao, m_Shader);
+            }
+
+            // Update Entities
             for (size_t i = 0; i < m_Entities.size(); ++i) {
-                Entity e = m_Entities[i];
+                Entity& e = m_Entities[i];
                 e.update(*this);
 
                 // Update Entity Buffer
                 if (e.is_dirty()) realloc_entity(e, i);
             }
+
             m_Shader.disable();
             m_Vao.unbind();
         }
@@ -218,15 +263,8 @@ namespace app {
 
     class Renderer {
 
-    public:
-        inline static constexpr size_t s_ArbitraryUpdateLimit = 300;
-
     private:
-        glm::mat4                                    m_ProjectionMatrix{ 1 };
         std::unordered_map<std::string, RenderGroup> m_RenderGroups;
-        double                                       m_AverageUpdateTime  = 0.0;
-        double                                       m_AverageRenderTime  = 0.0;
-        size_t                                       m_TotalRenderUpdates = 0;
 
     public:
         explicit Renderer() = default;
@@ -257,7 +295,7 @@ namespace app {
             }
         }
 
-        const RenderGroup& get_group(const std::string& group_name) const {
+        RenderGroup& get_group(const std::string& group_name) {
             return m_RenderGroups.at(group_name);
         }
 
@@ -290,8 +328,9 @@ namespace app {
 
             for (auto& [id, group] : m_RenderGroups) {
                 group.bind();
-                draw_elements_instanced(
+                draw_buffer_instanced(
                         DrawMode::TRIANGLES,
+                        0,
                         group.get_vertex_count(),
                         group.get_instance_count()
                 );
@@ -306,42 +345,10 @@ namespace app {
         }
 
         void update_and_render_groups() {
-
-            ++m_TotalRenderUpdates;
-
-            // Update Groups
-            auto now = Clock::now();
             update_groups();
-            m_AverageUpdateTime += Chrono::duration<double>(now - Clock::now()).count();
-
-            // Render Groups
-            now = Clock::now();
             render_groups();
-            m_AverageRenderTime += Chrono::duration<double>(now - Clock::now()).count();
-
-            [[unlikely]]
-            if (m_TotalRenderUpdates >= s_ArbitraryUpdateLimit) {
-                print_render_stats();
-                reset_render_stats();
-            }
         }
 
-        void print_render_stats() const {
-            HINFO(
-                    "[RENDER_STATS]",
-                    " # Average Update Time: {:.3f}s,"
-                    " Average Render Time: {:.3f}s,"
-                    " Over {} Updates",
-                    m_AverageUpdateTime / m_TotalRenderUpdates,
-                    m_AverageRenderTime / m_TotalRenderUpdates,
-                    m_TotalRenderUpdates
-            );
-        }
-
-        void reset_render_stats() {
-            m_AverageUpdateTime  = m_AverageRenderTime = 0.0;
-            m_TotalRenderUpdates = 0;
-        }
     };
 
 } // app
