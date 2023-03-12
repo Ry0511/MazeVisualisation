@@ -85,7 +85,6 @@ namespace maze {
         Maze2D               m_Maze;
         MazeGeneratorUpdater m_Generator;
         GameState            m_GameState;
-        glm::mat4            m_GlobalRotate;
         glm::mat4            m_GlobalScale;
         float                m_Theta;
 
@@ -94,7 +93,6 @@ namespace maze {
                 : m_Maze(s_MazeSize, s_MazeSize),
                   m_Generator(m_Maze),
                   m_GameState(GameState::MAZE_GENERATION),
-                  m_GlobalRotate(glm::mat4{ 1 }),
                   m_GlobalScale(glm::mat4{ 1 }) {
         }
 
@@ -125,7 +123,6 @@ namespace maze {
             group.add_group_functor([=](app::RenderGroup& g, app::Vao& vao, app::Shader& shader) {
                 shader.set_uniform(app::Shader::s_ProjectionMatrixUniform, app->get_proj_matrix());
                 shader.set_uniform(app::Shader::s_ViewMatrixUniform, app->get_camera_matrix());
-                shader.set_uniform(app::Shader::s_RotateMatrixUniform, this->m_GlobalRotate);
                 shader.set_uniform(app::Shader::s_ScaleMatrixUniform, this->m_GlobalScale);
 
                 auto& cam_state = app->get_camera_state();
@@ -146,13 +143,11 @@ namespace maze {
             if (app->is_key_down(app::Key::NUM_1)) {
                 m_GameState    = GameState::MAZE_GENERATION;
                 m_GlobalScale  = glm::mat4{ 1 };
-                m_GlobalRotate = glm::mat4{ 1 };
             }
 
             if (app->is_key_down(app::Key::NUM_2)) {
                 m_GameState    = GameState::ALGORITHM_SOLVING;
                 m_GlobalScale  = glm::scale(glm::mat4{ 1 }, glm::vec3{ 2.5, 1, 2.5 });
-                m_GlobalRotate = glm::mat4{ 1 };
             }
 
             if (app->is_key_down(app::Key::NUM_3)) {
@@ -160,7 +155,6 @@ namespace maze {
                 app->get_camera_state().cam_pos.x = 0.0F;
                 app->get_camera_state().cam_pos.z = 0.0F;
                 m_GlobalScale  = glm::scale(glm::mat4{ 1 }, glm::vec3{ 2.5, 1, 2.5 });
-                m_GlobalRotate = glm::mat4{ 1 };
             }
 
             // Update Game State
@@ -171,10 +165,6 @@ namespace maze {
                 }
 
                 case GameState::ALGORITHM_SOLVING: {
-                    float t = glm::radians(m_Theta) * 10;
-                    m_GlobalRotate = glm::rotate(glm::mat4{ 1 }, t, glm::vec3{ 1, 0, 0 })
-                                     * glm::rotate(glm::mat4{ 1 }, t * 1.25F, glm::vec3{ 0, 1, 0 })
-                                     * glm::rotate(glm::mat4{ 1 }, t * 0.8F, glm::vec3{ 0, 0, 1 });
                     break;
                 }
 
