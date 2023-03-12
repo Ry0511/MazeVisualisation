@@ -42,20 +42,21 @@ public:
     virtual bool on_update(float delta) override {
         m_Theta += delta;
 
-        set_title(
-                std::format(
-                        "Window # {}fps, Delta: {:.2f}ms, {}",
-                        (int) (1.0 / (delta)),
-                        delta * 1000.F,
-                        Camera3D::to_string()
-                ).c_str()
-        );
-        const glm::ivec2& size = get_window_size();
-        set_viewport(0, 0, size.x, size.y);
         Renderer::clear();
 
+        set_title(
+                std::format(
+                        "Window # {:<4} fps, Delta: {:<2.2f} ms",
+                        (int) (1.0 / (delta)),
+                        delta * 1000.F
+                ).c_str()
+        );
+
+        const glm::ivec2& size = get_window_size();
+        set_viewport(0, 0, size.x, size.y);
+
         m_MazeManager.update(this, delta);
-        this->Renderer::update_and_render_groups();
+        this->Renderer::update_and_render_groups(delta);
 
         return true;
     }

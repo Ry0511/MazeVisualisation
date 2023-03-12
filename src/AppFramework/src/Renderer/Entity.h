@@ -7,6 +7,7 @@
 
 #include "Renderer/VertexObjectBinding.h"
 #include "Renderer/Shader.h"
+#include "Renderer/RendererHandlers.h"
 
 #include <memory>
 #include <functional>
@@ -16,6 +17,10 @@
 #include <glm/ext/matrix_transform.hpp>
 
 namespace app {
+
+    //############################################################################//
+    // | INTERNAL ENTITY DATA |
+    //############################################################################//
 
     class RenderGroup;
 
@@ -27,18 +32,22 @@ namespace app {
         glm::vec3 colour;
     };
 
+    //############################################################################//
+    // | ENTITY CLASS |
+    //############################################################################//
+
     class Entity {
 
     public:
-        using Functor = std::function<bool(Entity&, RenderGroup&)>;
+        using EntityHandlerPtr = std::unique_ptr<EntityHandler>;
 
     private:
-        Transform            m_Transform;
-        RenderAttributes     m_RenderAttributes;
-        std::vector<Functor> m_Handles;
-        std::stack<Functor>  m_HandlesToAdd;
-        mutable bool         m_IsDirty;
-        mutable glm::mat4    m_Matrix;
+        Transform                     m_Transform;
+        RenderAttributes              m_RenderAttributes;
+        std::vector<EntityHandlerPtr> m_Handles;
+        std::stack<EntityHandlerPtr>  m_HandlesToAdd;
+        mutable bool                  m_IsDirty;
+        mutable glm::mat4             m_Matrix;
 
     public:
         Entity(
@@ -51,14 +60,7 @@ namespace app {
             m_Matrix(glm::mat4{ 1 }) {
         }
 
-        Entity(const Entity& o) : m_Transform(o.m_Transform),
-                                  m_RenderAttributes(o.m_RenderAttributes),
-                                  m_Handles(o.m_Handles),
-                                  m_HandlesToAdd(o.m_HandlesToAdd),
-                                  m_IsDirty(o.m_IsDirty),
-                                  m_Matrix(o.m_Matrix) {
-            //HINFO("[ENTITY]", " # Copied...");
-        }
+        Entity(const Entity& o) = delete;
 
         Entity(Entity&& o) : m_Transform(o.m_Transform),
                              m_RenderAttributes(o.m_RenderAttributes),
@@ -69,16 +71,7 @@ namespace app {
             //HINFO("[ENTITY]", " # Moved...");
         }
 
-        Entity& operator =(const Entity& o) {
-            m_Transform        = (o.m_Transform);
-            m_RenderAttributes = (o.m_RenderAttributes);
-            m_Handles          = (o.m_Handles);
-            m_HandlesToAdd     = (o.m_HandlesToAdd);
-            m_IsDirty          = (o.m_IsDirty);
-            m_Matrix           = (o.m_Matrix);
-            //HINFO("[ENTITY]", " # Copy Assigned...");
-            return *this;
-        }
+        Entity& operator =(const Entity& o) = delete;
 
         Entity& operator =(Entity&& o) {
             m_Transform        = o.m_Transform;
@@ -93,23 +86,25 @@ namespace app {
 
     public:
 
-        void update(RenderGroup& group) {
+        void update(RenderGroup& group, float delta) {
 
             // Add any pending functors
             while (!m_HandlesToAdd.empty()) {
-                m_Handles.push_back(m_HandlesToAdd.top());
+                m_Handles.push_back(std::move(m_HandlesToAdd.top()));
                 m_HandlesToAdd.pop();
             }
 
-            // Update functors (also erases functors that return false on update)
             for (auto i = m_Handles.begin(); i != m_Handles.end(); ++i) {
-                auto fn = *i;
-                if (!fn(*this, group)) {
-                    i = m_Handles.erase(i);
+                EntityHandlerPtr& handler = *i;
 
-                    [[unlikely]]
-                    if (i == m_Handles.end()) break;
+                // Update the Handler
+                if (handler->is_enabled(*this)) {
+                    if (!handler->update(*this, group, delta)) {
+                        i = m_Handles.erase(i);
+                        if (i == m_Handles.end()) break;
+                    }
                 }
+
             }
         }
 
@@ -141,10 +136,16 @@ namespace app {
             return m_Matrix;
         }
 
-        void add_functor(Functor fn) {
-            m_HandlesToAdd.push(fn);
+        template<class T, class... Args>
+        void add_entity_handler(Args&& ... args) {
+            static_assert(std::is_base_of<EntityHandler, T>(), "T should derive EntityHandler...");
+            m_HandlesToAdd.push(
+                    std::move(
+                            std::make_unique<T>(std::forward<Args>(args)...)
+                    )
+            );
         }
-
+        
         void set_dirty(bool is_dirty = true) const {
             m_IsDirty = is_dirty;
         }

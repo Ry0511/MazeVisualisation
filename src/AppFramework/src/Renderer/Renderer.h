@@ -12,6 +12,7 @@
 #include "Renderer/VertexObjectBinding.h"
 #include "Renderer/Entity.h"
 #include "Renderer/Shader.h"
+#include "Renderer/RendererHandlers.h"
 
 #include <glm/glm.hpp>
 #include <array>
@@ -25,7 +26,7 @@ namespace app {
     class RenderGroup {
 
     public:
-        using Functor = std::function<bool(RenderGroup&, Vao&, Shader&)>;
+        using GroupHandlerPtr = std::unique_ptr<GroupHandler>;
 
     public:
         inline static constexpr unsigned int s_VertexLayoutIndex      = 0U;
@@ -33,13 +34,13 @@ namespace app {
         inline static constexpr unsigned int s_EntityModelLayoutIndex = 4U;
 
     private:
-        Mutable3DModel         m_Model;
-        std::vector<glm::vec3> m_VertexData;
-        Vao                    m_Vao;
-        Shader                 m_Shader;
-        std::vector<Entity>    m_Entities;
-        std::stack<Entity>     m_EntitiesToAdd;
-        std::vector<Functor>   m_GroupFunctors;
+        Mutable3DModel               m_Model;
+        std::vector<glm::vec3>       m_VertexData;
+        Vao                          m_Vao;
+        Shader                       m_Shader;
+        std::vector<Entity>          m_Entities;
+        std::stack<Entity>           m_EntitiesToAdd;
+        std::vector<GroupHandlerPtr> m_GroupHandlers;
 
     public:
         RenderGroup(
@@ -53,7 +54,7 @@ namespace app {
             m_Shader(),
             m_Entities(),
             m_EntitiesToAdd(),
-            m_GroupFunctors() {
+            m_GroupHandlers() {
 
             m_Entities.reserve(entity_count);
 
@@ -98,7 +99,7 @@ namespace app {
                                        m_Shader(o.m_Shader),
                                        m_Entities(std::move(o.m_Entities)),
                                        m_EntitiesToAdd(std::move(o.m_EntitiesToAdd)),
-                                       m_GroupFunctors(std::move(o.m_GroupFunctors)) {
+                                       m_GroupHandlers(std::move(o.m_GroupHandlers)) {
 
         };
 
@@ -137,8 +138,14 @@ namespace app {
             return m_Entities.at(index);
         }
 
-        void add_group_functor(Functor fn) {
-            m_GroupFunctors.push_back(fn);
+        template<class T, class... Args>
+        void add_group_handler(Args&& ... args) {
+            static_assert(std::is_base_of<GroupHandler, T>(), "T should derive GroupHandler...");
+            m_GroupHandlers.push_back(
+                    std::move(
+                            std::make_unique<T>(std::forward<Args>(args)...)
+                    )
+            );
         }
 
         //############################################################################//
@@ -178,7 +185,7 @@ namespace app {
             auto& [model_buffer, model_slot]   = m_Vao.get_buffer(s_EntityModelLayoutIndex);
             auto& [colour_buffer, colour_slot] = m_Vao.get_buffer(s_ColourLayoutIndex);
 
-            const glm::mat4& model = entity.get_matrix();
+            const glm::mat4& model  = entity.get_matrix();
             const glm::vec3& colour = entity.get_render_attributes().colour;
 
             m_Vao.bind_all();
@@ -211,7 +218,7 @@ namespace app {
 
     public:
 
-        void update_entities() {
+        void update_entities(float delta) {
 
             // This block is expensive and as such should not be executed often
             bool is_realloc = false;
@@ -228,14 +235,20 @@ namespace app {
             m_Shader.enable();
 
             // Update Group Functors
-            for (size_t i = 0; i < m_GroupFunctors.size(); ++i) {
-                m_GroupFunctors[i](*this, m_Vao, m_Shader);
+            for (size_t i = 0; i < m_GroupHandlers.size(); ++i) {
+                GroupHandlerPtr& ptr = m_GroupHandlers[i];
+
+                if (ptr->is_enabled(*this)) {
+                    if (!ptr->update(*this, m_Vao, m_Shader)) {
+                        HINFO("[TODO]", " # Remove Group Handler");
+                    }
+                }
             }
 
             // Update Entities
             for (size_t i = 0; i < m_Entities.size(); ++i) {
                 Entity& e = m_Entities[i];
-                e.update(*this);
+                e.update(*this, delta);
 
                 // Update Entity Buffer
                 if (e.is_dirty()) realloc_entity(e, i);
@@ -338,14 +351,14 @@ namespace app {
             }
         }
 
-        void update_groups() {
+        void update_groups(float delta) {
             for (auto& [id, group] : m_RenderGroups) {
-                group.update_entities();
+                group.update_entities(delta);
             }
         }
 
-        void update_and_render_groups() {
-            update_groups();
+        void update_and_render_groups(float delta) {
+            update_groups(delta);
             render_groups();
         }
 

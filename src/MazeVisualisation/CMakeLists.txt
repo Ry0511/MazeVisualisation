@@ -6,7 +6,7 @@ set(CMAKE_CXX_STANDARD 20)
 set(PROJECT_NAME "MazeVisualisation")
 set(MazeVisualisation_HEADER_FILES
         src/MazeManager.h
-        src/MazeConstructs.h)
+        src/MazeConstructs.h src/MazeWall.h)
 set(MazeVisualisation_SOURCE_FILES
         "src/Main.cpp")
 

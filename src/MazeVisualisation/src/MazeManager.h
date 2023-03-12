@@ -8,6 +8,7 @@
 #include "CommonModelFileReaders.h"
 #include "MazeConstructs.h"
 #include "Renderer/Shader.h"
+#include "MazeWall.h"
 
 namespace maze {
 
@@ -30,13 +31,13 @@ namespace maze {
 
     public:
         MazeGeneratorUpdater(
-                Maze2D& maze,
+                std::shared_ptr<Maze2D> maze,
                 size_t initial_steps = s_MinSteps,
                 bool is_paused = true
         ) : m_Generator(std::make_unique<RecursiveBacktrackImpl>()),
             m_StepsPerUpdate(initial_steps),
             m_IsPaused(is_paused) {
-            m_Generator->init(maze);
+            m_Generator->init(*maze);
         }
 
     public:
@@ -69,10 +70,50 @@ namespace maze {
     };
 
     //############################################################################//
+    // | SHADER MANAGER |
+    //############################################################################//
+
+    class ShaderHandler : public app::GroupHandler {
+
+    private:
+        app::Application* m_App;
+
+    public:
+        ShaderHandler(app::Application* app) : m_App(app) {}
+
+    public:
+
+        virtual bool is_enabled(app::RenderGroup& group) override {
+            return m_App != nullptr;
+        }
+
+        virtual bool update(app::RenderGroup& group, app::Vao& vao, app::Shader& shader) override {
+
+            // Projection & View & Scale
+            shader.set_uniform(app::Shader::s_ProjectionMatrixUniform, m_App->get_proj_matrix());
+            shader.set_uniform(app::Shader::s_ViewMatrixUniform, m_App->get_camera_matrix());
+            shader.set_uniform(app::Shader::s_ScaleMatrixUniform, m_App->get_global_scale());
+
+            // Lighting
+            auto& cam_state = m_App->get_camera_state();
+            shader.set_uniform(app::Shader::s_LightPosUniform, cam_state.cam_pos);
+            shader.set_uniform(app::Shader::s_LightDirUniform, glm::vec3{ 0.1, -0.5, -1 });
+            shader.set_uniform(app::Shader::s_LightColourUniform, glm::vec3{ 1.0, 0.8, 1.0 });
+            shader.set_uniform(app::Shader::s_AmbientUniform, 0.2F);
+            shader.set_uniform(app::Shader::s_SpecularUniform, 0.4F);
+            shader.set_uniform(app::Shader::s_ShininessUniform, 16.F);
+            return true;
+        }
+    };
+
+    //############################################################################//
     // | MAZE MANAGER |
     //############################################################################//
 
     class MazeManager {
+
+    public:
+        using MazePtr = std::shared_ptr<Maze2D>;
 
     public:
         inline static constexpr Index s_MazeSize          = 16;
@@ -82,7 +123,7 @@ namespace maze {
         inline static std::string     s_FragShaderSrc     = "Res/Shaders/FragmentShader.glsl";
 
     private:
-        Maze2D               m_Maze;
+        MazePtr              m_Maze;
         MazeGeneratorUpdater m_Generator;
         GameState            m_GameState;
         glm::mat4            m_GlobalScale;
@@ -90,7 +131,7 @@ namespace maze {
 
     public:
         MazeManager()
-                : m_Maze(s_MazeSize, s_MazeSize),
+                : m_Maze(std::make_shared<Maze2D>(s_MazeSize, s_MazeSize)),
                   m_Generator(m_Maze),
                   m_GameState(GameState::MAZE_GENERATION),
                   m_GlobalScale(glm::mat4{ 1 }) {
@@ -113,27 +154,20 @@ namespace maze {
                     std::move(model),
                     s_VertexShaderSrc,
                     s_FragShaderSrc,
-                    m_Maze.get_total_wall_count()
+                    m_Maze->get_total_wall_count()
             );
 
-            // Populate Render Group
+            // Maze Wall Render Group
             app::RenderGroup& group = app->get_group(s_MazeWallGroup);
-            m_Maze.create_entities(group);
+            group.add_group_handler<ShaderHandler>(app);
 
-            group.add_group_functor([=](app::RenderGroup& g, app::Vao& vao, app::Shader& shader) {
-                shader.set_uniform(app::Shader::s_ProjectionMatrixUniform, app->get_proj_matrix());
-                shader.set_uniform(app::Shader::s_ViewMatrixUniform, app->get_camera_matrix());
-                shader.set_uniform(app::Shader::s_ScaleMatrixUniform, this->m_GlobalScale);
-
-                auto& cam_state = app->get_camera_state();
-                shader.set_uniform(app::Shader::s_LightPosUniform, cam_state.cam_pos);
-                shader.set_uniform(app::Shader::s_LightDirUniform, glm::vec3{0.1, -0.5, -1});
-                shader.set_uniform(app::Shader::s_LightColourUniform, glm::vec3{ 1.0, 0.8, 1.0 });
-                shader.set_uniform(app::Shader::s_AmbientUniform, 0.2F);
-                shader.set_uniform(app::Shader::s_SpecularUniform, 0.4F);
-                shader.set_uniform(app::Shader::s_ShininessUniform, 16.F);
-                return true;
+            // Individual Walls
+            m_Maze->for_each_wall_unique([&](Cardinal dir, const Index2D& pos, Cell cell) {
+                app::Entity entity;
+                entity.add_entity_handler<MazeWall>(m_Maze, pos, dir);
+                group.queue_entity(std::move(entity));
             });
+
         }
 
         void update(app::Application* app, float delta) {
@@ -141,26 +175,26 @@ namespace maze {
 
             // Switching Game State
             if (app->is_key_down(app::Key::NUM_1)) {
-                m_GameState    = GameState::MAZE_GENERATION;
-                m_GlobalScale  = glm::mat4{ 1 };
+                m_GameState   = GameState::MAZE_GENERATION;
+                m_GlobalScale = glm::mat4{ 1 };
             }
 
             if (app->is_key_down(app::Key::NUM_2)) {
-                m_GameState    = GameState::ALGORITHM_SOLVING;
-                m_GlobalScale  = glm::scale(glm::mat4{ 1 }, glm::vec3{ 2.5, 1, 2.5 });
+                m_GameState   = GameState::ALGORITHM_SOLVING;
+                m_GlobalScale = glm::scale(glm::mat4{ 1 }, glm::vec3{ 2.5, 1, 2.5 });
             }
 
             if (app->is_key_down(app::Key::NUM_3)) {
                 m_GameState = GameState::PLAYER_SOLVING;
                 app->get_camera_state().cam_pos.x = 0.0F;
                 app->get_camera_state().cam_pos.z = 0.0F;
-                m_GlobalScale  = glm::scale(glm::mat4{ 1 }, glm::vec3{ 2.5, 1, 2.5 });
+                m_GlobalScale = glm::scale(glm::mat4{ 1 }, glm::vec3{ 2.5, 1, 2.5 });
             }
 
             // Update Game State
             switch (m_GameState) {
                 case GameState::MAZE_GENERATION: {
-                    m_Generator.update(app, m_Maze, delta);
+                    m_Generator.update(app, *m_Maze, delta);
                     break;
                 }
 

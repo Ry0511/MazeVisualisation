@@ -14,7 +14,8 @@ set(AppFramework_HEADER_FILES
         src/Camera3D.h
         src/Renderer/VertexObjectBinding.h
         src/CommonModelFileReaders.h
-        src/Renderer/Entity.h)
+        src/Renderer/Entity.h
+        src/Renderer/RendererHandlers.h)
 
 set(AppFramework_SOURCE_FILES
         src/Window.cpp

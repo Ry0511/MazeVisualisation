@@ -6,6 +6,7 @@
 #define MAZEVISUALISATION_MAZECONSTRUCTS_H
 
 #include "Logging.h"
+#include "Renderer/RendererHandlers.h"
 
 #include <glm/glm.hpp>
 
@@ -350,13 +351,12 @@ namespace maze {
     private:
         Cell     m_Cell;
         Index2D  m_Pos;
-        size_t   m_Index;
         Cardinal m_Dir;
 
     public:
         WallBase(
-                const Cell cell, const Index2D& pos, const Cardinal dir, const size_t index
-        ) : m_Cell(cell), m_Pos(pos), m_Dir(dir), m_Index(index) {};
+                const Cell cell, const Index2D& pos, const Cardinal dir
+        ) : m_Cell(cell), m_Pos(pos), m_Dir(dir) {};
 
         WallBase(const WallBase&) = default;
         WallBase(WallBase&&) = default;
@@ -379,10 +379,6 @@ namespace maze {
 
         const Cardinal get_wall_dir() const {
             return m_Dir;
-        }
-
-        const size_t get_index() const {
-            return m_Index;
         }
 
     public:
@@ -542,40 +538,6 @@ namespace maze {
                 }
             }
             return cells;
-        }
-
-        void create_entities(app::RenderGroup& group) const {
-
-            HINFO("[CREATE_WALLS]", " # Creating {} Wall Entities...", get_total_wall_count());
-
-            for_each_wall_unique([&](Cardinal dir, const Index2D& pos, Cell cur_cell) {
-                app::Entity               wall_entity{};
-                std::shared_ptr<WallBase> base = std::make_unique<WallBase>(cur_cell, pos, dir, 0);
-
-                wall_entity.get_transform().pos            = base->get_pos_vec();
-                wall_entity.get_transform().scale          = base->get_scale_vec();
-                wall_entity.get_render_attributes().colour = base->get_colour();
-                wall_entity.set_dirty();
-
-                // If a Change to the Cell is detected rectify this in the corresponding entity
-                wall_entity.add_functor([=](app::Entity& e, app::RenderGroup& group) {
-
-                    Cell cell = this->get_cell(base->get_pos());
-                    if (base->get_cell() == cell) return !is_set<Flag::FINISHED>(cell);
-                    base->set_cell(cell);
-
-                    e.get_transform().pos            = base->get_pos_vec();
-                    e.get_transform().scale          = base->get_scale_vec();
-                    e.get_render_attributes().colour = base->get_colour();
-                    e.set_dirty(true);
-
-                    return !is_set<Flag::FINISHED>(cell);
-                });
-
-                group.queue_entity(std::move(wall_entity));
-            });
-
-            HINFO("[CREATE_WALLS]", " # Finished Creating Entities...");
         }
 
         template<class Function>
