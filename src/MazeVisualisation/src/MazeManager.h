@@ -130,7 +130,7 @@ namespace maze {
 
                 auto& cam_state = app->get_camera_state();
                 shader.set_uniform(app::Shader::s_LightPosUniform, cam_state.cam_pos);
-                shader.set_uniform(app::Shader::s_LightDirUniform, glm::vec3{ 0, 0, -1 });
+                shader.set_uniform(app::Shader::s_LightDirUniform, glm::vec3{0.1, -0.5, -1});
                 shader.set_uniform(app::Shader::s_LightColourUniform, glm::vec3{ 1.0, 0.8, 1.0 });
                 shader.set_uniform(app::Shader::s_AmbientUniform, 0.2F);
                 shader.set_uniform(app::Shader::s_SpecularUniform, 0.4F);
