@@ -107,6 +107,52 @@ namespace maze {
     };
 
     //############################################################################//
+    // | PLAYER FOLLOWER |
+    //############################################################################//
+
+    class PlayerEntity : public app::EntityHandler {
+
+    private:
+        app::Application* m_App;
+        std::shared_ptr<Maze2D> m_Maze;
+        Index2D                 m_PrevPos;
+
+    public:
+        PlayerEntity(
+                app::Application* app,
+                std::shared_ptr<Maze2D> maze
+        ) : m_App(app), m_Maze(maze), m_PrevPos({ -1, -1 }) {}
+
+    public:
+        virtual bool is_enabled(app::Entity& entity) override {
+            return m_App != nullptr;
+        }
+
+        virtual bool update(app::Entity& entity, app::RenderGroup& group, float d) override {
+            auto      & t         = entity.get_transform();
+            const auto& cam_state = m_App->get_camera_state();
+
+            // Convert Cam Position to Grid Position (Accounting for Grid Scale)
+            float   cx         = (cam_state.cam_pos.x / 2.5F);
+            float   cz         = (cam_state.cam_pos.z / 2.5F);
+            float   offset     = 0.5F;
+            Index2D player_pos = Index2D{ (Index) (cx + offset), (Index) (cz + offset) };
+
+            // Update Entity Position
+            t.pos = glm::vec3{ cx, -0.75, cz };
+            entity.set_dirty();
+
+            // Update Current & Previous Cell
+            if (m_PrevPos == player_pos) return true;
+            if (m_Maze->inbounds(m_PrevPos)) m_Maze->unset_flags(m_PrevPos, { Flag::RED });
+            if (m_Maze->inbounds(player_pos)) m_Maze->set_flags(player_pos, { Flag::RED });
+            m_PrevPos = player_pos;
+
+            return true;
+        }
+    };
+
+    //############################################################################//
     // | MAZE MANAGER |
     //############################################################################//
 
@@ -168,6 +214,12 @@ namespace maze {
                 group.queue_entity(std::move(entity));
             });
 
+            // Player Cube (Test)
+            app::Entity player_entity;
+            player_entity.add_entity_handler<PlayerEntity>(app, m_Maze);
+            player_entity.get_transform().scale          = glm::vec3{ 0.15, 0.15, 0.15 };
+            player_entity.get_render_attributes().colour = glm::vec3{ 0.2, 1.0, 1.0 };
+            group.queue_entity(std::move(player_entity));
         }
 
         void update(app::Application* app, float delta) {
@@ -175,19 +227,20 @@ namespace maze {
 
             // Switching Game State
             if (app->is_key_down(app::Key::NUM_1)) {
-                m_GameState   = GameState::MAZE_GENERATION;
-                app->set_global_scale(glm::vec3{1});
+                m_GameState = GameState::MAZE_GENERATION;
+                app->get_camera_state().cam_pos = glm::vec3{ 0 };
+                app->set_global_scale(glm::vec3{ 1 });
             }
 
             if (app->is_key_down(app::Key::NUM_2)) {
-                m_GameState   = GameState::ALGORITHM_SOLVING;
+                m_GameState = GameState::ALGORITHM_SOLVING;
+                app->get_camera_state().cam_pos = glm::vec3{ 0 };
                 app->set_global_scale(glm::vec3{ 2.5, 1, 2.5 });
             }
 
             if (app->is_key_down(app::Key::NUM_3)) {
                 m_GameState = GameState::PLAYER_SOLVING;
-                app->get_camera_state().cam_pos.x = 0.0F;
-                app->get_camera_state().cam_pos.z = 0.0F;
+                app->get_camera_state().cam_pos = glm::vec3{ 0 };
                 app->set_global_scale(glm::vec3{ 2.5, 1, 2.5 });
             }
 
@@ -203,7 +256,8 @@ namespace maze {
                 }
 
                 case GameState::PLAYER_SOLVING: {
-                    app->get_camera_state().cam_pos.y = 0.2F;
+                    auto& cam_state = app->get_camera_state();
+                    cam_state.cam_pos.y = 0.2F;
                     break;
                 }
             }
