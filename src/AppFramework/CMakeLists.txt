@@ -15,7 +15,8 @@ set(AppFramework_HEADER_FILES
         src/Renderer/VertexObjectBinding.h
         src/CommonModelFileReaders.h
         src/Renderer/Entity.h
-        src/Renderer/RendererHandlers.h)
+        src/Renderer/RendererHandlers.h
+        src/Renderer/DefaultHandlers.h)
 
 set(AppFramework_SOURCE_FILES
         src/Window.cpp
