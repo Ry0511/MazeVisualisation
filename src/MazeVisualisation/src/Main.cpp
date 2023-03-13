@@ -3,18 +3,13 @@
 //
 
 #include "Application.h"
-
 #include "MazeManager.h"
-
-#include "MazeConstructs.h"
 #include "Logging.h"
 #include "Renderer/GLUtil.h"
 
 class App : public app::Application {
 
 private:
-    float             m_Theta     = 0.0F;
-    size_t            m_TickCount = 0;
     maze::MazeManager m_MazeManager{};
 
 public:
@@ -40,9 +35,6 @@ public:
     }
 
     virtual bool on_update(float delta) override {
-        m_Theta += delta;
-
-        Renderer::clear();
 
         set_title(
                 std::format(
@@ -52,18 +44,21 @@ public:
                 ).c_str()
         );
 
+        // Pre-Update
+        Renderer::clear();
         const glm::ivec2& size = get_window_size();
         set_viewport(0, 0, size.x, size.y);
 
+        // Update & Render
         m_MazeManager.update(this, delta);
-        this->Renderer::update_and_render_groups(delta);
+        this->Renderer::update_groups(delta);
+        this->Renderer::render_groups();
 
         return true;
     }
 };
 
 int main() {
-    auto app = new App();
-    app->start();
-    delete app;
+    App app{};
+    app.start();
 }
