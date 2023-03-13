@@ -43,12 +43,16 @@ namespace app {
             GLsizei count,
             GLsizei instance_count
     ) {
-        GL(glDrawArraysInstanced(
-                static_cast<GLenum>(mode),
-                first,
-                count,
-                instance_count
-        ));
+        if (instance_count == 1) {
+            draw_buffer(mode, first, count);
+        } else {
+            GL(glDrawArraysInstanced(
+                    static_cast<GLenum>(mode),
+                    first,
+                    count,
+                    instance_count
+            ));
+        }
     }
 
     void Renderer::draw_elements(

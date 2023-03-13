@@ -145,7 +145,7 @@ namespace app {
         void set_pos(glm::ivec2 pos);
         void lock_cursor_to_centre(bool is_cursor_locked = true);
         glm::vec2 get_mouse_pos();
-        glm::vec2 get_mouse_vel(glm::vec2 sens = glm::vec2{ 0.02, 0.02 });
+        glm::vec2 get_mouse_vel(glm::vec2 sens = glm::vec2{ 0.03, 0.025 });
         bool is_key_pressed(Key key);
         bool is_key_down(Key key);
         void compute_key_state(bool* states, std::initializer_list<Key> keys);
