@@ -126,15 +126,13 @@ namespace maze {
         MazePtr              m_Maze;
         MazeGeneratorUpdater m_Generator;
         GameState            m_GameState;
-        glm::mat4            m_GlobalScale;
         float                m_Theta;
 
     public:
         MazeManager()
                 : m_Maze(std::make_shared<Maze2D>(s_MazeSize, s_MazeSize)),
                   m_Generator(m_Maze),
-                  m_GameState(GameState::MAZE_GENERATION),
-                  m_GlobalScale(glm::mat4{ 1 }) {
+                  m_GameState(GameState::MAZE_GENERATION) {
         }
 
     public:
@@ -165,6 +163,8 @@ namespace maze {
             m_Maze->for_each_wall_unique([&](Cardinal dir, const Index2D& pos, Cell cell) {
                 app::Entity entity;
                 entity.add_entity_handler<MazeWall>(m_Maze, pos, dir);
+                entity.update(group, 0.0);
+
                 group.queue_entity(std::move(entity));
             });
 
@@ -176,19 +176,19 @@ namespace maze {
             // Switching Game State
             if (app->is_key_down(app::Key::NUM_1)) {
                 m_GameState   = GameState::MAZE_GENERATION;
-                m_GlobalScale = glm::mat4{ 1 };
+                app->set_global_scale(glm::vec3{1});
             }
 
             if (app->is_key_down(app::Key::NUM_2)) {
                 m_GameState   = GameState::ALGORITHM_SOLVING;
-                m_GlobalScale = glm::scale(glm::mat4{ 1 }, glm::vec3{ 2.5, 1, 2.5 });
+                app->set_global_scale(glm::vec3{ 2.5, 1, 2.5 });
             }
 
             if (app->is_key_down(app::Key::NUM_3)) {
                 m_GameState = GameState::PLAYER_SOLVING;
                 app->get_camera_state().cam_pos.x = 0.0F;
                 app->get_camera_state().cam_pos.z = 0.0F;
-                m_GlobalScale = glm::scale(glm::mat4{ 1 }, glm::vec3{ 2.5, 1, 2.5 });
+                app->set_global_scale(glm::vec3{ 2.5, 1, 2.5 });
             }
 
             // Update Game State
