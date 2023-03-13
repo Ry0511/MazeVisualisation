@@ -3,23 +3,14 @@
 //
 
 #include "Application.h"
-
 #include "MazeManager.h"
-
-#include "MazeConstructs.h"
 #include "Logging.h"
 #include "Renderer/GLUtil.h"
-
-using namespace app::components;
 
 class App : public app::Application {
 
 private:
-    float       m_Theta     = 0.0F;
-    size_t      m_TickCount = 0;
-
-private:
-    maze::MazeManager m_MazeManager = {};
+    maze::MazeManager m_MazeManager{};
 
 public:
     App() : app::Application("My App", 800, 600) {}
@@ -40,35 +31,34 @@ public:
         GL(glPolygonMode(GL_FRONT_AND_BACK, GL_FILL));
         GL(glLineWidth(1));
 
-        // Initialise Managers
         m_MazeManager.init(this);
     }
 
     virtual bool on_update(float delta) override {
-        m_Theta += delta;
 
         set_title(
                 std::format(
-                        "Window # {}fps, Delta: {:.6f}, {}",
+                        "Window # {:<4} fps, Delta: {:<2.2f} ms",
                         (int) (1.0 / (delta)),
-                        delta,
-                        Camera3D::to_string()
+                        delta * 1000.F
                 ).c_str()
         );
+
+        // Pre-Update
+        Renderer::clear();
         const glm::ivec2& size = get_window_size();
         set_viewport(0, 0, size.x, size.y);
-        Renderer::clear();
 
-        // Update Maze Manager
-        m_MazeManager.update(delta, this);
-        m_MazeManager.render(this);
+        // Update & Render
+        m_MazeManager.update(this, delta);
+        this->Renderer::update_groups(delta);
+        this->Renderer::render_groups();
 
         return true;
     }
 };
 
 int main() {
-    auto app = new App();
-    app->start();
-    delete app;
+    App app{};
+    app.start();
 }

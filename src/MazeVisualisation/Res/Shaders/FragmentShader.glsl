@@ -2,16 +2,16 @@
 
 // Input From Vertex Shader
 in vec3 colour;
-in vec3 normal; // Note that this is not normalised and can be wrong if non-uniform scaling is applied.
+in vec3 normal;// Note that this is not normalised and can be wrong if non-uniform scaling is applied.
 in vec3 frag_pos;
 
 // Fragment Output
 out vec4 frag_colour;
 
 // Lighting Params
-uniform vec3 u_LightPos;
-uniform vec3 u_LightDir;
-uniform vec3 u_LightColour;
+uniform vec3  u_LightPos;
+uniform vec3  u_LightDir;
+uniform vec3  u_LightColour;
 uniform float u_Ambient;
 uniform float u_Specular;
 uniform float u_Shininess;

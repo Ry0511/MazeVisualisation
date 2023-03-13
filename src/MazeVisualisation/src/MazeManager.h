@@ -8,389 +8,206 @@
 #include "CommonModelFileReaders.h"
 #include "MazeConstructs.h"
 #include "Renderer/Shader.h"
-#include "Renderer/StandardComponents.h"
-#include "Renderer/RendererComponents.h"
+#include "MazeWall.h"
 
 namespace maze {
 
-    //############################################################################//
-    // | NAMESPACES & ALIAS'S |
-    //############################################################################//
-
-    using namespace app;
-    using namespace components;
-    struct Cube {};
-
-    //############################################################################//
-    // | MAZE PROGRAM STATE |
-    //############################################################################//
-
-    enum class MazeGameState : int {
-        ALGORITHM_GENERATION = 0,
-        ALGORITHM_SOLVING    = 1,
-        PLAYER_PLAYING       = 2
+    enum class GameState : char {
+        MAZE_GENERATION,
+        ALGORITHM_SOLVING,
+        PLAYER_SOLVING
     };
 
-    //############################################################################//
-    // | MAZE SHADER |
-    //############################################################################//
-
-    class MazeShader : public AbstractShaderBase {
+    class MazeGeneratorUpdater {
 
     public:
-        inline static std::string s_CubeVertexShader   = "Res/Shaders/MazeVertexShader.glsl";
-        inline static std::string s_CubeFragmentShader = "Res/Shaders/FragmentShader.glsl";
+        inline static constexpr size_t s_MinSteps = 1;
+        inline static constexpr size_t s_MaxSteps = 1 << 14;
 
     private:
-        Shader    m_Shader = {};
-        glm::mat4 m_Rotate = glm::mat4{ 1 };
-        glm::mat4 m_Scale  = glm::scale(glm::mat4{ 1 }, glm::vec3{ 1.25, 0.5, 1.25 });
-        Entity    m_ManagerEntity;
+        MazeGenerator m_Generator;
+        size_t        m_StepsPerUpdate;
+        bool          m_IsPaused;
 
     public:
-        MazeShader(Entity manager, app::Application* app) : m_ManagerEntity(manager) {
-            m_Shader.compile_and_link(s_CubeVertexShader, s_CubeFragmentShader);
-            m_Shader.enable();
-            m_Shader.disable();
-
-            // Add the lighting component
-            app->get_registry().emplace<Lighting>(manager);
+        MazeGeneratorUpdater(
+                std::shared_ptr<Maze2D> maze,
+                size_t initial_steps = s_MinSteps,
+                bool is_paused = true
+        ) : m_Generator(std::make_unique<RecursiveBacktrackImpl>()),
+            m_StepsPerUpdate(initial_steps),
+            m_IsPaused(is_paused) {
+            m_Generator->init(*maze);
         }
 
     public:
-        virtual void begin_render(app::Application* app) {
-            m_Shader.enable();
 
-            // Push Uniforms
-            m_Shader.set_uniform(Shader::s_ProjectionMatrixUniform, app->get_proj_matrix());
-            m_Shader.set_uniform(Shader::s_ViewMatrixUniform, app->get_camera_matrix());
-            m_Shader.set_uniform(Shader::s_RotateMatrixUniform, m_Rotate);
-            m_Shader.set_uniform(Shader::s_ScaleMatrixUniform, m_Scale);
+        void update(app::Application* app, Maze2D& maze, float delta) {
 
-            // Lighting Uniforms
-            const auto& lighting = app->get_registry().get<Lighting>(m_ManagerEntity);
-            m_Shader.set_uniform("u_LightPos", lighting.pos);
-            m_Shader.set_uniform("u_LightDir", lighting.dir);
-            m_Shader.set_uniform("u_LightColour", lighting.light_colour);
-            m_Shader.set_uniform("u_Ambient", lighting.ambient);
-            m_Shader.set_uniform("u_Specular", lighting.specular);
-            m_Shader.set_uniform("u_Shininess", lighting.shininess);
-        }
+            app->get_camera_state().cam_pos.y = 15;
 
-        virtual void end_render(app::Application* app) {
-            m_Shader.disable();
+            if (app->is_key_down(app::Key::SPACE)) m_IsPaused = !m_IsPaused;
+
+            if (app->is_key_down(app::Key::Q)) {
+                m_StepsPerUpdate >>= 1;
+            }
+
+            if (app->is_key_down(app::Key::E)) {
+                m_StepsPerUpdate <<= 1;
+                m_StepsPerUpdate = std::clamp(m_StepsPerUpdate, s_MinSteps, s_MaxSteps);
+            }
+
+            if (app->is_key_down(app::Key::R)) {
+                maze.reset();
+                m_Generator = std::make_unique<RecursiveBacktrackImpl>();
+                m_Generator->init(maze);
+            }
+
+            if (!m_Generator->is_complete() && !m_IsPaused) {
+                m_Generator->step(maze, m_StepsPerUpdate);
+            }
         }
     };
 
     //############################################################################//
-    // | MAZE RENDER BUFFERS |
+    // | SHADER MANAGER |
     //############################################################################//
 
-    class MazeRenderBuffer {
+    class ShaderHandler : public app::GroupHandler {
 
     private:
-        inline static constexpr unsigned int s_ColourIndex          = 3U;
-        inline static constexpr unsigned int s_WallModelMatrixIndex = 4U;
-        inline static std::string            s_CubeObjFile          = "Res/Models/Cube.obj";
-        inline static std::string            s_TexturedCube         = "Res/Models/TexturedCube.obj";
-
-    private:
-        Mutable3DModel m_CubeModel{};
-        Entity         m_ManagerEntity;
+        app::Application* m_App;
 
     public:
-        MazeRenderBuffer(
-                Entity manager, app::Application* app, size_t wall_count
-        ) : m_ManagerEntity(manager) {
-            auto& reg = app->get_registry();
-
-            // Read Cube Model File
-            app::model_file::read_wavefront_file(s_TexturedCube, m_CubeModel);
-
-            // Cube Renderer
-            auto maze_renderer = reg.emplace<TriangleMeshRenderer>(
-                    m_ManagerEntity,
-                    std::move(m_CubeModel.flatten_vertex_data()),
-                    std::make_shared<MazeShader>(m_ManagerEntity, app),
-                    0,
-                    wall_count
-            );
-
-            // Model Matrix Buffer
-            maze_renderer.add_buffer<FloatMat4Attrib, s_WallModelMatrixIndex>(
-                    init_array_buffer<glm::mat4, app::BufferAllocUsage::DYNAMIC_DRAW>(
-                            nullptr, wall_count
-                    ),
-                    1
-            );
-
-            // Colour Buffer
-            maze_renderer.add_buffer<Vec3Attribute, s_ColourIndex>(
-                    init_array_buffer<glm::vec3, app::BufferAllocUsage::DYNAMIC_DRAW>(
-                            nullptr, wall_count
-                    ),
-                    1
-            );
-        }
+        ShaderHandler(app::Application* app) : m_App(app) {}
 
     public:
 
-        __forceinline TriangleMeshRenderer& get_mesh_renderer(app::Application* app) {
-            return app->get_registry().get<TriangleMeshRenderer>(m_ManagerEntity);
+        virtual bool is_enabled(app::RenderGroup& group) override {
+            return m_App != nullptr;
         }
 
-        __forceinline void update_colour_buffer(
-                app::Application* app,
-                glm::vec3* colour_buffer,
-                size_t begin,
-                size_t end
-        ) {
-            TriangleMeshRenderer& mesh = get_mesh_renderer(app);
-            mesh.set_buffer_range<glm::vec3, s_ColourIndex>(colour_buffer, begin, end);
-        }
+        virtual bool update(app::RenderGroup& group, app::Vao& vao, app::Shader& shader) override {
 
-        __forceinline void update_model_buffer(
-                app::Application* app,
-                glm::mat4* matrix_buffer,
-                size_t begin,
-                size_t end
-        ) {
-            TriangleMeshRenderer& mesh = get_mesh_renderer(app);
-            mesh.set_buffer_range<glm::mat4, s_WallModelMatrixIndex>(matrix_buffer, begin, end);
+            // Projection & View & Scale
+            shader.set_uniform(app::Shader::s_ProjectionMatrixUniform, m_App->get_proj_matrix());
+            shader.set_uniform(app::Shader::s_ViewMatrixUniform, m_App->get_camera_matrix());
+            shader.set_uniform(app::Shader::s_ScaleMatrixUniform, m_App->get_global_scale());
+
+            // Lighting
+            auto& cam_state = m_App->get_camera_state();
+            shader.set_uniform(app::Shader::s_LightPosUniform, cam_state.cam_pos);
+            shader.set_uniform(app::Shader::s_LightDirUniform, glm::vec3{ 0.1, -0.5, -1 });
+            shader.set_uniform(app::Shader::s_LightColourUniform, glm::vec3{ 1.0, 0.8, 1.0 });
+            shader.set_uniform(app::Shader::s_AmbientUniform, 0.2F);
+            shader.set_uniform(app::Shader::s_SpecularUniform, 0.4F);
+            shader.set_uniform(app::Shader::s_ShininessUniform, 16.F);
+            return true;
         }
     };
 
     //############################################################################//
-    // | MUTABLE GAME STATES |
-    //############################################################################//
-
-    struct GeneratorGameState {
-        inline static constexpr float s_GeneratorUpdateTimeFrame = 1.0F / 20.0F;
-        glm::vec3                     cam_pos                    = glm::vec3{ 0, 25.F, 0 };
-        float                         cam_speed                  = app::camera_constants::s_InitialSpeed;
-        float                         cam_speed_scalar           = app::camera_constants::s_InitialSpeedScalar;
-        float                         maze_gen_timer             = 0.0F;
-        maze::MazeGenerator           maze_generator             = { nullptr };
-        size_t                        steps_per_update           = 1;
-    };
-
-    struct SolverGameState {
-        glm::vec3 cam_pos = glm::vec3{ 0, 25.F, 0 };
-    };
-
-    struct PlayerGameState {
-        glm::vec3 cam_pos          = glm::vec3{ 0, 0.1F, 0 };
-        float     cam_speed        = 1.5F;
-        float     cam_speed_scalar = 1.5F;
-    };
-
-    //############################################################################//
-    // | CUBE MANAGER CLASS |
+    // | MAZE MANAGER |
     //############################################################################//
 
     class MazeManager {
 
-    private:
-        inline static constexpr unsigned int s_InitialSize = 16;
-
-    private:
-        Entity        m_ManagerEntity = {};
-        maze::Maze2D  m_Maze          = Maze2D{ s_InitialSize, s_InitialSize };
-        MazeGameState m_GameState     = MazeGameState::ALGORITHM_GENERATION;
-        bool          m_IsPaused      = true;
-
-        // Game States
-    private:
-        GeneratorGameState m_GeneratorState{};
-        SolverGameState    m_SolverState{};
-        PlayerGameState    m_PlayingState{};
+    public:
+        using MazePtr = std::shared_ptr<Maze2D>;
 
     public:
-        MazeManager() = default;
-        MazeManager(const MazeManager&) = delete;
-        MazeManager(MazeManager&&) = delete;
+        inline static constexpr Index s_MazeSize          = 16;
+        inline static std::string     s_TexturedCubeModel = "Res/Models/TexturedCube.obj";
+        inline static std::string     s_MazeWallGroup     = "maze_walls_group";
+        inline static std::string     s_VertexShaderSrc   = "Res/Shaders/MazeVertexShader.glsl";
+        inline static std::string     s_FragShaderSrc     = "Res/Shaders/FragmentShader.glsl";
 
-        //############################################################################//
-        // | INITIALISE |
-        //############################################################################//
+    private:
+        MazePtr              m_Maze;
+        MazeGeneratorUpdater m_Generator;
+        GameState            m_GameState;
+        float                m_Theta;
 
     public:
+        MazeManager()
+                : m_Maze(std::make_shared<Maze2D>(s_MazeSize, s_MazeSize)),
+                  m_Generator(m_Maze),
+                  m_GameState(GameState::MAZE_GENERATION) {
+        }
+
+    public:
+
         void init(app::Application* app) {
 
-            m_GeneratorState.maze_generator = std::move(std::make_unique<RecursiveBacktrackImpl>());
-            m_GeneratorState.maze_generator->init(m_Maze);
-
-            size_t wall_count = m_Maze.get_total_wall_count();
-            auto& reg = app->get_registry();
-            m_ManagerEntity = app->create_entity();
-
-            auto& maze_buffer = reg.emplace<MazeRenderBuffer>(
-                    m_ManagerEntity,
-                    m_ManagerEntity,
-                    app,
-                    wall_count
+            // Load Model Files
+            app::Mutable3DModel model{};
+            app::model_file::read_wavefront_file(
+                    s_TexturedCubeModel,
+                    model
             );
 
-            entt::basic_group group = reg.group<WallBase, Transform, RenderAttributes>();
-            m_Maze.insert_into_ecs(app);
+            // Create Render Group
+            app->create_render_group(
+                    s_MazeWallGroup,
+                    std::move(model),
+                    s_VertexShaderSrc,
+                    s_FragShaderSrc,
+                    m_Maze->get_total_wall_count()
+            );
 
-            // Initialise Buffers
-            std::vector<glm::mat4> model_buffer{ wall_count, glm::mat4{ 1 }};
-            std::vector<glm::vec3> colour_buffer{ wall_count, glm::vec3{ 1 }};
-            group.each([&](
-                    Entity id,
-                    const WallBase& base,
-                    Transform& trans,
-                    RenderAttributes& attrib
-            ) {
-                // Initialise Buffers
-                model_buffer[base.get_index()]  = std::move(trans.get_matrix());
-                colour_buffer[base.get_index()] = attrib.colour;
+            // Maze Wall Render Group
+            app::RenderGroup& group = app->get_group(s_MazeWallGroup);
+            group.add_group_handler<ShaderHandler>(app);
+
+            // Individual Walls
+            m_Maze->for_each_wall_unique([&](Cardinal dir, const Index2D& pos, Cell cell) {
+                app::Entity entity;
+                entity.add_entity_handler<MazeWall>(m_Maze, pos, dir);
+                entity.update(group, 0.0);
+
+                group.queue_entity(std::move(entity));
             });
 
-            maze_buffer.update_colour_buffer(app, colour_buffer.data(), 0, colour_buffer.size());
-            maze_buffer.update_model_buffer(app, model_buffer.data(), 0, model_buffer.size());
         }
 
-        //############################################################################//
-        // | UPDATE |
-        //############################################################################//
+        void update(app::Application* app, float delta) {
+            m_Theta += delta;
 
-        void update(float delta, app::Application* app) {
-
-            // Update Lighting Position & Direction
-            Lighting& lighting  = app->get_registry().get<Lighting>(m_ManagerEntity);
-            auto    & cam_state = app->get_camera_state();
-            lighting.pos = cam_state.cam_pos + glm::vec3{ 0, 0.25, 0 };
-            lighting.dir = glm::vec3{ 0, 0.75, 0.1F };
-
-            // Switch game state
-            if (app->is_key_down(Key::I)) {
-                cam_state.cam_pos          = m_GeneratorState.cam_pos;
-                cam_state.cam_speed        = m_GeneratorState.cam_speed;
-                cam_state.cam_speed_scalar = m_GeneratorState.cam_speed_scalar;
-                m_GameState = MazeGameState::ALGORITHM_GENERATION;
+            // Switching Game State
+            if (app->is_key_down(app::Key::NUM_1)) {
+                m_GameState   = GameState::MAZE_GENERATION;
+                app->set_global_scale(glm::vec3{1});
             }
 
-            if (app->is_key_down(Key::O)) {
-                cam_state.cam_pos          = m_PlayingState.cam_pos;
-                cam_state.cam_speed        = m_PlayingState.cam_speed;
-                cam_state.cam_speed_scalar = m_PlayingState.cam_speed_scalar;
-                m_GameState = MazeGameState::PLAYER_PLAYING;
+            if (app->is_key_down(app::Key::NUM_2)) {
+                m_GameState   = GameState::ALGORITHM_SOLVING;
+                app->set_global_scale(glm::vec3{ 2.5, 1, 2.5 });
             }
 
-            if (app->is_key_down(Key::P)) {
-                cam_state.cam_pos = m_SolverState.cam_pos;
-                m_GameState = MazeGameState::ALGORITHM_SOLVING;
+            if (app->is_key_down(app::Key::NUM_3)) {
+                m_GameState = GameState::PLAYER_SOLVING;
+                app->get_camera_state().cam_pos.x = 0.0F;
+                app->get_camera_state().cam_pos.z = 0.0F;
+                app->set_global_scale(glm::vec3{ 2.5, 1, 2.5 });
             }
 
+            // Update Game State
             switch (m_GameState) {
-                case MazeGameState::ALGORITHM_GENERATION: {
-                    cam_state.cam_pos.y = m_GeneratorState.cam_pos.y;
-                    update_generator(delta, app);
-                    m_GeneratorState.cam_pos = cam_state.cam_pos;
+                case GameState::MAZE_GENERATION: {
+                    m_Generator.update(app, *m_Maze, delta);
                     break;
                 }
-                case MazeGameState::ALGORITHM_SOLVING: {
-                    cam_state.cam_pos.y   = m_SolverState.cam_pos.y;
-                    m_SolverState.cam_pos = cam_state.cam_pos;
+
+                case GameState::ALGORITHM_SOLVING: {
                     break;
                 }
-                case MazeGameState::PLAYER_PLAYING: {
-                    cam_state.cam_pos.y = m_PlayingState.cam_pos.y;
-                    update_player_solver(delta, app);
-                    m_PlayingState.cam_pos = cam_state.cam_pos;
+
+                case GameState::PLAYER_SOLVING: {
+                    app->get_camera_state().cam_pos.y = 0.2F;
                     break;
                 }
             }
-
-            // Update
-            auto& reg           = app->get_registry();
-            auto& render_buffer = reg.get<MazeRenderBuffer>(m_ManagerEntity);
-            auto group = app->get_registry().group<WallBase, Transform, RenderAttributes>();
-            group.each([&](
-                    Entity id,
-                    WallBase& base,
-                    Transform& trans,
-                    RenderAttributes& attrib
-            ) {
-                // Update Cell if changed
-                if (!m_Maze.inbounds(base.get_pos())) return;
-                Cell cell = m_Maze.get_cell(base.get_pos());
-                if (base.get_cell() == cell) return;
-                base.set_cell(cell);
-
-                size_t index = base.get_index();
-                trans.set_scale(base.get_scale_vec());
-                trans.set_pos(base.get_pos_vec());
-                attrib.colour = base.get_colour();
-
-                glm::mat4 matrix = trans.get_matrix();
-                render_buffer.update_colour_buffer(app, &attrib.colour, index, 1);
-                render_buffer.update_model_buffer(app, &matrix, index, 1);
-            });
         }
-
-        //############################################################################//
-        // | - UPDATE - | MAZE GENERATOR
-        //############################################################################//
-
-        void update_generator(float delta, app::Application* app) {
-            auto& state = m_GeneratorState;
-            state.maze_gen_timer += delta;
-
-            // Early Returns
-            if (state.maze_gen_timer < GeneratorGameState::s_GeneratorUpdateTimeFrame) return;
-            if (state.maze_generator->is_complete()) return;
-
-            // Controls
-            if (app->is_key_down(Key::SPACE)) m_IsPaused = !m_IsPaused;
-            if (m_IsPaused) return;
-
-            if (app->is_key_down(Key::E)) {
-                state.steps_per_update <<= 1;
-                state.steps_per_update = std::min(1ULL << 16, state.steps_per_update);
-            }
-
-            if (app->is_key_down(Key::Q)) {
-                state.steps_per_update >>= 1;
-                state.steps_per_update = std::max(1ULL, state.steps_per_update);
-            }
-
-            if (app->is_key_down(Key::R)) {
-                m_Maze.reset();
-                state.maze_generator = std::move(std::make_unique<RecursiveBacktrackImpl>());
-                state.maze_generator->init(m_Maze);
-            }
-
-            // Step
-            state.maze_generator->step(m_Maze, state.steps_per_update);
-            state.maze_gen_timer = 0.0F;
-        }
-
-        //############################################################################//
-        // | - UPDATE - | ALGORITHM SOLVER
-        //############################################################################//
-
-        void update_algorithm_solver(float delta, app::Application* app) {
-        }
-
-        //############################################################################//
-        // | - UPDATE - | MANUAL SOLVER
-        //############################################################################//
-
-        void update_player_solver(float delta, app::Application* app) {
-        }
-
-        //############################################################################//
-        // | RENDER |
-        //############################################################################//
-
-        void render(app::Application* app) {
-            auto renderer = app->get_component<TriangleMeshRenderer>(m_ManagerEntity);
-            renderer.render(app);
-        }
-
     };
 
 }

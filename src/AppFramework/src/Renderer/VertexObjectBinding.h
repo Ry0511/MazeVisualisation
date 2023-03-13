@@ -571,18 +571,23 @@ namespace app {
     // | BUFFER & ATTRIBUTE TOGGLES |
     //############################################################################//
 
-    struct Enabler {
-        GLuint* indices;
-        size_t count;
+    struct VaoGroup {
+        std::vector<GLuint> indices;
 
-        Enabler(GLuint* indices, size_t count) : indices(indices), count(count) {}
-
-        GLuint* begin() {
-            return &indices[0];
+        auto begin() {
+            return indices.begin();
         }
 
-        GLuint* end() {
-            return &indices[count - 1];
+        auto end() {
+            return indices.end();
+        }
+
+        auto begin() const {
+            return indices.begin();
+        }
+
+        auto end() const {
+            return indices.end();
         }
     };
 
@@ -665,11 +670,15 @@ namespace app {
             }
         }
 
-        void bind(Enabler& targets) {
+        void bind(VaoGroup& targets) {
+            bind();
             for (GLuint i : targets) {
                 for (auto& [buffer, attrib] : m_State->buffers) {
-                    buffer.bind();
-                    attrib->enable();
+                    if (attrib->index == i) {
+                        buffer.bind();
+                        attrib->enable();
+                        break;
+                    }
                 }
             }
         }

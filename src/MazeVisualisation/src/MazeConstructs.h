@@ -6,7 +6,7 @@
 #define MAZEVISUALISATION_MAZECONSTRUCTS_H
 
 #include "Logging.h"
-#include "Renderer/StandardComponents.h"
+#include "Renderer/RendererHandlers.h"
 
 #include <glm/glm.hpp>
 
@@ -21,8 +21,6 @@ namespace maze {
     //############################################################################//
     // | GLOBAL ALIAS |
     //############################################################################//
-
-    using namespace app::components;
 
     using Cell = uint32_t;
     using Index = int;
@@ -133,7 +131,8 @@ namespace maze {
         VISITED   = 1 << 11,
         INVALID   = 1 << 12,
         PROCESSED = 1 << 13,
-        MODIFIED  = 1 << 14
+        MODIFIED  = 1 << 14,
+        FINISHED  = 1 << 15
     };
 
     inline static constexpr Cell s_FlagCount = 13;
@@ -352,13 +351,12 @@ namespace maze {
     private:
         Cell     m_Cell;
         Index2D  m_Pos;
-        size_t   m_Index;
         Cardinal m_Dir;
 
     public:
         WallBase(
-                const Cell cell, const Index2D& pos, const Cardinal dir, const size_t index
-        ) : m_Cell(cell), m_Pos(pos), m_Dir(dir), m_Index(index) {};
+                const Cell cell, const Index2D& pos, const Cardinal dir
+        ) : m_Cell(cell), m_Pos(pos), m_Dir(dir) {};
 
         WallBase(const WallBase&) = default;
         WallBase(WallBase&&) = default;
@@ -381,10 +379,6 @@ namespace maze {
 
         const Cardinal get_wall_dir() const {
             return m_Dir;
-        }
-
-        const size_t get_index() const {
-            return m_Index;
         }
 
     public:
@@ -415,11 +409,10 @@ namespace maze {
                 }
                 case Cardinal::WEST: {
                     if (is_set<Flag::PATH_WEST>(m_Cell)) return path_scale;
-
                     return glm::vec3{ 0.5, 0.5, 0.1 };
                 }
                 case Cardinal::SOUTH: {
-                    if (is_set<Flag::PATH_SOUTH>(m_Cell))return path_scale;
+                    if (is_set<Flag::PATH_SOUTH>(m_Cell)) return path_scale;
                     return glm::vec3{ 0.1, 0.5, 0.5 };
                 }
                 case Cardinal::NORTH: {
@@ -545,27 +538,6 @@ namespace maze {
                 }
             }
             return cells;
-        }
-
-        void insert_into_ecs(app::EntityComponentSystem* ecs) const {
-
-            size_t index = 0;
-            for_each_wall_unique([&](const Cardinal dir, const Index2D& pos, const Cell cell) {
-                auto wall_entity = ecs->create_entity();
-                auto& wall_base = ecs->add_component<WallBase>(wall_entity, cell, pos, dir, index);
-
-                // Wall Colour
-                auto& render_attrib = ecs->add_component<RenderAttributes>(wall_entity);
-                render_attrib.colour = wall_base.get_colour();
-
-                // Initialise Wall Position & Scale
-                auto& transform = ecs->add_component<Transform>(wall_entity);
-                transform.set_pos(wall_base.get_pos_vec());
-                transform.set_scale(wall_base.get_scale_vec());
-
-                ++index;
-            });
-
         }
 
         template<class Function>
@@ -906,7 +878,7 @@ namespace maze {
                 m_IsComplete = true;
                 std::for_each(maze.begin(), maze.end(), [&](Cell& item) {
                     item &= ~cellof<Flag::RED>();
-                    item |= cellof<Flag::GREEN>() | cellof<Flag::BLUE>();
+                    item |= cellof<Flag::GREEN>() | cellof<Flag::BLUE>() | cellof<Flag::FINISHED>();
                 });
                 HINFO("[BACKTRACK]", " # Recursive backtracker has finished...");
                 return;

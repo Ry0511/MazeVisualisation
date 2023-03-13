@@ -12,14 +12,13 @@ out vec3 frag_pos;
 
 uniform mat4 u_ProjectionMatrix;
 uniform mat4 u_ViewMatrix;
-uniform mat4 u_RotateMatrix;
 uniform mat4 u_ScaleMatrix;
 
 void main() {
     colour = v_colour;
     normal = v_normal;
 
-    mat4 model = u_RotateMatrix * u_ScaleMatrix * v_model_matrix;
+    mat4 model = u_ScaleMatrix * v_model_matrix;
     frag_pos = vec3(model * vec4(v_vert_pos, 1.0));
     gl_Position = u_ProjectionMatrix * u_ViewMatrix * model * vec4(v_vert_pos, 1.0);
 }
