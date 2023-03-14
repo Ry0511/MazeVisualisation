@@ -16,7 +16,8 @@ set(AppFramework_HEADER_FILES
         src/CommonModelFileReaders.h
         src/Renderer/Entity.h
         src/Renderer/RendererHandlers.h
-        src/Renderer/DefaultHandlers.h)
+        src/Renderer/DefaultHandlers.h
+        src/BoundingBox.h)
 
 set(AppFramework_SOURCE_FILES
         src/Window.cpp
