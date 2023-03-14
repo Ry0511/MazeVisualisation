@@ -115,11 +115,10 @@ namespace maze {
 
     private:
         app::Application* m_App;
-        std::shared_ptr<Maze2D> m_Maze;
-        Index2D                 m_PrevPos;
-
+        std::shared_ptr<Maze2D>     m_Maze;
+        float                       m_Theta;
+        char                        m_CurrentColliderIndex;
         app::AxisAlignedBoundingBox m_BoundingBox;
-        app::AxisAlignedBoundingBox m_Collider{ glm::vec3{ 0.0, 0.0, 2.5 }, 0.5F};
 
     public:
         PlayerEntity(
@@ -127,7 +126,8 @@ namespace maze {
                 std::shared_ptr<Maze2D> maze
         ) : m_App(app),
             m_Maze(maze),
-            m_PrevPos({ -1, -1 }),
+            m_Theta(),
+            m_CurrentColliderIndex(),
             m_BoundingBox(glm::vec3{ 0, 0, 0 }, 0.5F) {}
 
     public:
@@ -135,9 +135,37 @@ namespace maze {
             return m_App != nullptr;
         }
 
-        virtual bool update(app::Entity& entity, app::RenderGroup& group, float d) override {
+        virtual bool update(app::Entity& entity, app::RenderGroup& group, float delta) override {
+            m_Theta += delta;
+            if (m_Theta > 0.25F) {
+                m_Theta                = 0.0;
+                ++m_CurrentColliderIndex;
+                m_CurrentColliderIndex = m_CurrentColliderIndex < 4 ? m_CurrentColliderIndex : 0;
+            }
+
             auto& t         = entity.get_transform();
             auto& cam_state = m_App->get_camera_state();
+
+            float collider_size   = 0.5F;
+            float collider_offset = 0.9F;
+//            app::AxisAlignedBoundingBox collider{ // SOUTH COLLIDER
+//                    glm::vec3{ -0.9, 0, 2 },
+//                    collider_size
+//            };
+//            app::AxisAlignedBoundingBox collider{ // NORTH COLLIDER
+//                    glm::vec3{ 0.9, 0, 2 },
+//                    collider_size
+//            };
+//            app::AxisAlignedBoundingBox collider{ // EAST COLLIDER
+//                    glm::vec3{ 0.0, 0.0, 2.9 },
+//                    collider_size
+//            };
+//            app::AxisAlignedBoundingBox collider{ // EAST COLLIDER
+//                    glm::vec3{ 0.0, 0.0, 1.1 },
+//                    collider_size
+//            };
+
+            t.scale = glm::vec3{ collider_size, collider_size, collider_size };
 
             // Convert Cam Position to Grid Position (Accounting for Grid Scale)
             float cx     = (cam_state.cam_pos.x / 2.5F);
@@ -145,27 +173,43 @@ namespace maze {
             float offset = 0.5F;
             m_BoundingBox.realign(
                     glm::vec3{
-                            cam_state.cam_pos.x * 0.5F,
-                            cam_state.cam_pos.y * 0.5F,
-                            cam_state.cam_pos.z * 0.5F
+                            cx,
+                            cam_state.cam_pos.y,
+                            cz
                     },
-                    0.3F
+                    0.1F
             );
             Index2D player_pos = Index2D{ (Index) (cx + offset), (Index) (cz + offset) };
 
+            float px = player_pos.col;
+            float py = player_pos.row;
+
+            // North, East, South, and West (Potential Colliders)
+            app::AxisAlignedBoundingBox all_colliders[4]{
+                    { glm::vec3{ py - collider_offset, 0.0, px }, collider_size },
+                    { glm::vec3{ py, 0.0, px + collider_offset }, collider_size },
+                    { glm::vec3{ py + collider_offset, 0.0, px }, collider_size },
+                    { glm::vec3{ py, 0.0, px - collider_offset }, collider_size }
+            };
+
             // Update Entity Position
-            t.pos = glm::vec3{ cx, -0.75, cz };
+            t.pos   = all_colliders[m_CurrentColliderIndex].get_centre();
+            t.pos.y = -0.75;
             entity.set_dirty();
 
-            // Update Current & Previous Cell
-            if (m_Maze->inbounds(m_PrevPos)) m_Maze->unset_flags(m_PrevPos, { Flag::RED });
-            if (m_Maze->inbounds(player_pos)) m_Maze->set_flags(player_pos, { Flag::RED });
-            m_PrevPos = player_pos;
+            // If the player is out of bounds don't check for collisions
+            if (!m_Maze->inbounds(player_pos)) return true;
+            Cell cell = m_Maze->get_cell(player_pos);
 
-            // Collision Detection & Resolution
-            if (m_BoundingBox.intersects(m_Collider)) {
-                cam_state.cam_pos = cam_state.cam_delta_pos;
+            // Collision Detection & Primitive Resolution
+            for (size_t i = 0; i < 4; ++i) {
+                app::AxisAlignedBoundingBox& collider = all_colliders[i];
+                Cardinal wall_dir = get_cardinal(i);
+                if (is_wall(wall_dir, cell) && m_BoundingBox.intersects(collider)) {
+                    cam_state.cam_pos = cam_state.cam_delta_pos;
+                }
             }
+
             return true;
         }
     };
@@ -235,8 +279,7 @@ namespace maze {
             // Player Cube (Test)
             app::Entity player_entity;
             player_entity.add_entity_handler<PlayerEntity>(app, m_Maze);
-            player_entity.get_transform().scale          = glm::vec3{ 0.15, 0.15, 0.15 };
-            player_entity.get_render_attributes().colour = glm::vec3{ 0.2, 1.0, 1.0 };
+            player_entity.get_render_attributes().colour = glm::vec3{ 1.0, 0.5, 0.0 };
             group.queue_entity(std::move(player_entity));
         }
 
