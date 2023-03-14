@@ -106,7 +106,7 @@ namespace maze {
         };
 
         glm::vec3 to_vec() {
-            return glm::vec3{row, 0, col};
+            return glm::vec3{ row, 0, col };
         }
     };
 
@@ -198,8 +198,8 @@ namespace maze {
         WEST  = 3
     };
 
-    static inline constexpr char          s_CardinalCount = 4;
-    static inline const Distribution      s_CardinalDist  = Distribution{ 0, 3 };
+    static inline constexpr char                    s_CardinalCount = 4;
+    static inline const Distribution                s_CardinalDist  = Distribution{ 0, 3 };
     static inline constexpr std::array<Cardinal, 4> s_AllCardinals{
             Cardinal::NORTH, Cardinal::EAST, Cardinal::SOUTH, Cardinal::WEST
     };
@@ -257,6 +257,20 @@ namespace maze {
             default:
                 throw std::exception();
         }
+    }
+
+    static constexpr bool is_wall(const Cardinal dir, const Cell cell) {
+        switch (dir) {
+            case Cardinal::NORTH:
+                return !is_set<Flag::PATH_NORTH>(cell);
+            case Cardinal::EAST:
+                return !is_set<Flag::PATH_EAST>(cell);
+            case Cardinal::SOUTH:
+                return !is_set<Flag::PATH_SOUTH>(cell);
+            case Cardinal::WEST:
+                return !is_set<Flag::PATH_WEST>(cell);
+        }
+        throw std::exception();
     }
 
     //############################################################################//
