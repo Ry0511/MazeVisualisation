@@ -36,11 +36,15 @@ public:
 
     virtual bool on_update(float delta) override {
 
+        const auto& cam = get_camera_state();
         set_title(
                 std::format(
-                        "Window # {:<4} fps, Delta: {:<2.2f} ms",
+                        "Window # {:<4} fps, Delta: {:<2.2f} ms, Pos: {:.2f}, {:.2f}, {:.2f}",
                         (int) (1.0 / (delta)),
-                        delta * 1000.F
+                        delta * 1000.F,
+                        cam.cam_pos.x,
+                        cam.cam_pos.y,
+                        cam.cam_pos.z
                 ).c_str()
         );
 
