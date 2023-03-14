@@ -24,10 +24,15 @@ namespace app {
               public Camera3D {
 
     private:
+        inline static constexpr float s_Fov  = glm::radians(80.0F);
+        inline static constexpr float s_Ar   = 16.0F / 10.0F;
+        inline static constexpr float s_Near = 0.1F;
+        inline static constexpr float s_Far  = 1000.F;
+
+    private:
         bool      m_IsRunning        = false;
         bool      m_IsTerminated     = false;
-        glm::mat4 m_ProjectionMatrix = glm::perspective(glm::radians(80.F), 16.F / 10.F, 0.1F,
-                                                        1000.F);
+        glm::mat4 m_ProjectionMatrix = glm::perspective(s_Fov, s_Ar, s_Near, s_Far);
         glm::mat4 m_GlobalScale      = glm::mat4{ 1 };
 
     public:
@@ -71,7 +76,7 @@ namespace app {
 
     public:
         void set_global_scale(const glm::vec3& scale) {
-            m_GlobalScale = glm::scale(glm::mat4{1}, scale);
+            m_GlobalScale = glm::scale(glm::mat4{ 1 }, scale);
         }
 
     };
