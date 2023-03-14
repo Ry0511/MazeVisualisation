@@ -9,6 +9,7 @@
 #include "MazeConstructs.h"
 #include "Renderer/Shader.h"
 #include "MazeWall.h"
+#include "BoundingBox.h"
 
 namespace maze {
 
@@ -117,11 +118,17 @@ namespace maze {
         std::shared_ptr<Maze2D> m_Maze;
         Index2D                 m_PrevPos;
 
+        app::AxisAlignedBoundingBox m_BoundingBox;
+        app::AxisAlignedBoundingBox m_Collider{ glm::vec3{ 0.0, 0.0, 2.5 }, 0.5F};
+
     public:
         PlayerEntity(
                 app::Application* app,
                 std::shared_ptr<Maze2D> maze
-        ) : m_App(app), m_Maze(maze), m_PrevPos({ -1, -1 }) {}
+        ) : m_App(app),
+            m_Maze(maze),
+            m_PrevPos({ -1, -1 }),
+            m_BoundingBox(glm::vec3{ 0, 0, 0 }, 0.5F) {}
 
     public:
         virtual bool is_enabled(app::Entity& entity) override {
@@ -129,13 +136,21 @@ namespace maze {
         }
 
         virtual bool update(app::Entity& entity, app::RenderGroup& group, float d) override {
-            auto      & t         = entity.get_transform();
-            const auto& cam_state = m_App->get_camera_state();
+            auto& t         = entity.get_transform();
+            auto& cam_state = m_App->get_camera_state();
 
             // Convert Cam Position to Grid Position (Accounting for Grid Scale)
-            float   cx         = (cam_state.cam_pos.x / 2.5F);
-            float   cz         = (cam_state.cam_pos.z / 2.5F);
-            float   offset     = 0.5F;
+            float cx     = (cam_state.cam_pos.x / 2.5F);
+            float cz     = (cam_state.cam_pos.z / 2.5F);
+            float offset = 0.5F;
+            m_BoundingBox.realign(
+                    glm::vec3{
+                            cam_state.cam_pos.x * 0.5F,
+                            cam_state.cam_pos.y * 0.5F,
+                            cam_state.cam_pos.z * 0.5F
+                    },
+                    0.3F
+            );
             Index2D player_pos = Index2D{ (Index) (cx + offset), (Index) (cz + offset) };
 
             // Update Entity Position
@@ -143,11 +158,14 @@ namespace maze {
             entity.set_dirty();
 
             // Update Current & Previous Cell
-            if (m_PrevPos == player_pos) return true;
             if (m_Maze->inbounds(m_PrevPos)) m_Maze->unset_flags(m_PrevPos, { Flag::RED });
             if (m_Maze->inbounds(player_pos)) m_Maze->set_flags(player_pos, { Flag::RED });
             m_PrevPos = player_pos;
 
+            // Collision Detection & Resolution
+            if (m_BoundingBox.intersects(m_Collider)) {
+                cam_state.cam_pos = cam_state.cam_delta_pos;
+            }
             return true;
         }
     };
