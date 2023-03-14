@@ -26,7 +26,7 @@ namespace app {
     private:
         bool      m_IsRunning        = false;
         bool      m_IsTerminated     = false;
-        glm::mat4 m_ProjectionMatrix = glm::perspective(glm::radians(45.F), 16.F / 9.F, 0.1F,
+        glm::mat4 m_ProjectionMatrix = glm::perspective(glm::radians(80.F), 16.F / 10.F, 0.1F,
                                                         1000.F);
         glm::mat4 m_GlobalScale      = glm::mat4{ 1 };
 
