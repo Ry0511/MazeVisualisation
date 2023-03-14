@@ -37,6 +37,20 @@ namespace app {
 
     public:
 
+        const glm::vec3& get_min() const {
+            return m_Min;
+        }
+
+        const glm::vec3& get_max() const {
+            return m_Max;
+        }
+
+        glm::vec3 get_centre() const {
+            return (m_Min + m_Max) * 0.5F;
+        }
+
+    public:
+
         void realign(const glm::vec3& centre, const float offset) {
             m_Min = glm::vec3(centre.x - offset, centre.y - offset, centre.z - offset);
             m_Max = glm::vec3(centre.x + offset, centre.y + offset, centre.z + offset);
