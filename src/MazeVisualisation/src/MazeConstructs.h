@@ -200,7 +200,7 @@ namespace maze {
 
     static inline constexpr char          s_CardinalCount = 4;
     static inline const Distribution      s_CardinalDist  = Distribution{ 0, 3 };
-    static inline std::array<Cardinal, 4> s_AllCardinals{
+    static inline constexpr std::array<Cardinal, 4> s_AllCardinals{
             Cardinal::NORTH, Cardinal::EAST, Cardinal::SOUTH, Cardinal::WEST
     };
 
