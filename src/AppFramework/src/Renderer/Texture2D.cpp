@@ -9,7 +9,6 @@
 
 #include "Logging.h"
 #include "GLUtil.h"
-#include "Image.h"
 
 namespace app {
 

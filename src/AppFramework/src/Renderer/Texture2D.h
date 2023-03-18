@@ -8,14 +8,14 @@
 #ifndef MAZEVISUALISATION_TEXTURE2D_H
 #define MAZEVISUALISATION_TEXTURE2D_H
 
+#include "Image.h"
+
 #include <gl/glew.h>
 #include <initializer_list>
 #include <utility>
 #include <array>
 
 namespace app {
-
-    class Image;
 
     //############################################################################//
     // | GLEW TEXTURE 2D ENUMERATIONS |

@@ -8,10 +8,6 @@
 #ifndef MAZEVISUALISATION_IMAGE_H
 #define MAZEVISUALISATION_IMAGE_H
 
-#define STB_IMAGE_IMPLEMENTATION
-
-#include "stb_image.h"
-
 #include <cstdint>
 #include <vector>
 #include <string>
@@ -24,9 +20,9 @@ namespace app {
         using PixelType = unsigned char;
 
     private:
-        int                  m_Width;
-        int                  m_Height;
-        int                  m_ChannelCount;
+        int                    m_Width;
+        int                    m_Height;
+        int                    m_ChannelCount;
         std::vector<PixelType> m_PixelBuffer;
 
         //############################################################################//
@@ -43,8 +39,8 @@ namespace app {
         //############################################################################//
 
     public:
-        Image& operator=(const Image& other);
-        Image& operator=(Image&& other);
+        Image& operator =(const Image& other);
+        Image& operator =(Image&& other);
 
         //############################################################################//
         // | GETTERS |
