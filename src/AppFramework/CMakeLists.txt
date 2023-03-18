@@ -20,6 +20,8 @@ set(
         src/Renderer/DefaultHandlers.h
         src/BoundingBox.h
         src/stb_image.h
+        src/Image.h
+        src/Image.cpp
 )
 
 set(
