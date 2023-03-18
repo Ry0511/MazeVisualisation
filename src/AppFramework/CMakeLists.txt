@@ -22,6 +22,8 @@ set(
         src/stb_image.h
         src/Image.h
         src/Image.cpp
+        src/Renderer/Texture2D.h
+        src/Renderer/Texture2D.cpp
 )
 
 set(
