@@ -28,6 +28,10 @@ namespace maze {
     public:
         inline static constexpr float s_PlayerColliderSize = 0.125F;
         inline static constexpr float s_FixedPlayerY       = 0.2F;
+        inline static constexpr float s_PlayingWallScale   = 2.5F;
+        inline static constexpr float s_WallColliderSize   = 0.5F;
+        inline static constexpr float s_WallColliderOffset = 0.9F;
+
 
     private:
         app::AxisAlignedBoundingBox m_BoundingBox;
@@ -46,12 +50,10 @@ namespace maze {
             // Variables
             auto& cam_state = app->get_camera_state();
             cam_state.cam_pos.y = s_FixedPlayerY;
-            float collider_size   = 0.5F;
-            float collider_offset = 0.9F;
 
             // Convert Cam Position to Grid Position (Accounting for Grid Scale)
-            float cx     = (cam_state.cam_pos.x / 2.5F);
-            float cz     = (cam_state.cam_pos.z / 2.5F);
+            float cx     = (cam_state.cam_pos.x / s_PlayingWallScale);
+            float cz     = (cam_state.cam_pos.z / s_PlayingWallScale);
             float offset = 0.5F;
             m_BoundingBox.realign(
                     glm::vec3{
@@ -59,25 +61,25 @@ namespace maze {
                             cam_state.cam_pos.y,
                             cz
                     },
-                    0.15F
+                    s_PlayerColliderSize
             );
             Index2D player_pos = Index2D{ (Index) (cx + offset), (Index) (cz + offset) };
 
             float px = player_pos.col;
             float py = player_pos.row;
 
-            // North, East, South, and West (Potential Colliders)
-            constexpr size_t            collider_count = 4;
-            app::AxisAlignedBoundingBox all_colliders[collider_count]{
-                    { glm::vec3{ py - collider_offset, 0.0, px }, collider_size },
-                    { glm::vec3{ py, 0.0, px + collider_offset }, collider_size },
-                    { glm::vec3{ py + collider_offset, 0.0, px }, collider_size },
-                    { glm::vec3{ py, 0.0, px - collider_offset }, collider_size }
-            };
-
             // If the player is out of bounds don't check for collisions
             if (!maze.inbounds(player_pos)) return;
             Cell cell = maze.get_cell(player_pos);
+
+            // North, East, South, and West (Potential Colliders)
+            constexpr size_t            collider_count = 4;
+            app::AxisAlignedBoundingBox all_colliders[collider_count]{
+                    { glm::vec3{ py - s_WallColliderOffset, 0.0, px }, s_PlayerColliderSize },
+                    { glm::vec3{ py, 0.0, px + s_WallColliderOffset }, s_PlayerColliderSize },
+                    { glm::vec3{ py + s_WallColliderOffset, 0.0, px }, s_PlayerColliderSize },
+                    { glm::vec3{ py, 0.0, px - s_WallColliderOffset }, s_PlayerColliderSize }
+            };
 
             // Collision Detection & Primitive Resolution
             for (size_t i = 0; i < collider_count; ++i) {
@@ -97,9 +99,9 @@ namespace maze {
     class MazeGeneratorUpdater {
 
     public:
-        inline static constexpr size_t s_MinSteps = 1;
-        inline static constexpr size_t s_MaxSteps = 1 << 14;
-        inline static constexpr float s_MinUpdateTimeframe = 1.0F / 30.0F;
+        inline static constexpr size_t s_MinSteps           = 1;
+        inline static constexpr size_t s_MaxSteps           = 1 << 14;
+        inline static constexpr float  s_MinUpdateTimeframe = 1.0F / 30.0F;
 
     private:
         MazeGenerator m_Generator;
