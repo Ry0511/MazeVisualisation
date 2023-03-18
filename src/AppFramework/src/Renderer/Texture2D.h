@@ -80,24 +80,40 @@ namespace app {
 
     private:
         unsigned int m_Texture;
+        TextureUnit m_Unit;
 
     public:
-        Texture2D();
+        Texture2D(TextureUnit unit = TextureUnit::ZERO);
         Texture2D(const Texture2D&) = delete;
         Texture2D(Texture2D&&);
 
     public:
         Texture2D& operator =(const Texture2D&) = delete;
         Texture2D& operator =(Texture2D&&);
+        ~Texture2D();
 
     public:
-        void bind(TextureUnit unit = TextureUnit::ZERO);
-        void unbind(TextureUnit unit = TextureUnit::ZERO);
-        bool is_bound(TextureUnit unit = TextureUnit::ZERO);
+        unsigned int get_texture_id() const {
+            return m_Texture;
+        }
+
+        TextureUnit get_texture_unit() const {
+            return m_Unit;
+        }
+
+        void set_texture_unit(TextureUnit unit) {
+            m_Unit = unit;
+        }
+
+    public:
+        void bind();
+        void unbind();
+        bool is_bound();
 
     public:
         void set_texture_image(const Image& image);
         void set_texture_flags(std::initializer_list<std::pair<TextureFlag, GLint>> flags);
+        void enable_preset();
     };
 
 } // app
