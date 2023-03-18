@@ -9,6 +9,7 @@ layout (location = 4) in mat4 v_model_matrix;
 out vec3 colour;
 out vec3 normal;
 out vec3 frag_pos;
+out vec2 tex_pos;
 
 uniform mat4 u_ProjectionMatrix;
 uniform mat4 u_ViewMatrix;
@@ -17,6 +18,7 @@ uniform mat4 u_ScaleMatrix;
 void main() {
     colour = v_colour;
     normal = v_normal;
+    tex_pos = vec2(v_tex);
 
     mat4 model = u_ScaleMatrix * v_model_matrix;
     frag_pos = vec3(model * vec4(v_vert_pos, 1.0));
