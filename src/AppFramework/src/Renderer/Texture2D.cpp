@@ -11,8 +11,6 @@
 #include "GLUtil.h"
 #include "Image.h"
 
-#include <gl/glew.h>
-
 namespace app {
 
     //############################################################################//
