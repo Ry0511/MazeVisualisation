@@ -16,7 +16,7 @@ namespace app {
     // | CONSTRUCTORS |
     //############################################################################//
 
-    Texture2D::Texture2D() : m_Texture() {
+    Texture2D::Texture2D() : m_Texture(0) {
         GL(glGenTextures(1, &m_Texture));
         ASSERT(m_Texture != 0U, "Generated Texture is invalid...");
         HINFO("[TEXTURE2D]", " # Created Texture '{}'...", m_Texture);
@@ -46,17 +46,17 @@ namespace app {
     void Texture2D::bind(TextureUnit unit) {
         GL(glActiveTexture((GLenum) unit));
         GL(glBindTexture(GL_TEXTURE_2D, m_Texture));
-        s_BoundTexture[(GLenum) unit] = m_Texture;
+        s_BoundTexture[get_texture_index(unit)] = m_Texture;
     }
 
     void Texture2D::unbind(TextureUnit unit) {
         GL(glActiveTexture((GLenum) unit));
         GL(glBindTexture(GL_TEXTURE_2D, 0));
-        s_BoundTexture[(GLenum) unit] = 0;
+        s_BoundTexture[get_texture_index(unit)] = 0;
     }
 
     bool Texture2D::is_bound(TextureUnit unit) {
-        return s_BoundTexture[(GLenum) unit] == m_Texture;
+        return s_BoundTexture[get_texture_index(unit)] == m_Texture;
     }
 
     void Texture2D::set_texture_image(const Image& image) {

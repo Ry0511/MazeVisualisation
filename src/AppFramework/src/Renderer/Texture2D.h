@@ -50,7 +50,24 @@ namespace app {
         TEN   = GL_TEXTURE10
     };
 
+    inline static constexpr GLenum s_TextureOffset = (GLenum) TextureUnit::ZERO;
     inline static constexpr size_t s_TextureUnitCount = 10;
+
+    static_assert((GLenum) TextureUnit::ZERO - s_TextureOffset == 0, "");
+    static_assert((GLenum) TextureUnit::ONE - s_TextureOffset == 1, "");
+    static_assert((GLenum) TextureUnit::TWO - s_TextureOffset == 2, "");
+    static_assert((GLenum) TextureUnit::THREE - s_TextureOffset == 3, "");
+    static_assert((GLenum) TextureUnit::FOUR - s_TextureOffset == 4, "");
+    static_assert((GLenum) TextureUnit::FIVE - s_TextureOffset == 5, "");
+    static_assert((GLenum) TextureUnit::SIX - s_TextureOffset == 6, "");
+    static_assert((GLenum) TextureUnit::SEVEN - s_TextureOffset == 7, "");
+    static_assert((GLenum) TextureUnit::EIGHT - s_TextureOffset == 8, "");
+    static_assert((GLenum) TextureUnit::NINE - s_TextureOffset == 9, "");
+    static_assert((GLenum) TextureUnit::TEN - s_TextureOffset == 10, "");
+
+    inline static constexpr size_t get_texture_index(TextureUnit unit) {
+        return ((GLenum) unit) - s_TextureOffset;
+    }
 
     //############################################################################//
     // | TEXTURE WRAPPER CLASS |
