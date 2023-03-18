@@ -104,6 +104,10 @@ namespace maze {
                 return hasher(i.row) ^ (hasher(i.col) << 1);
             }
         };
+
+        glm::vec3 to_vec() {
+            return glm::vec3{ row, 0, col };
+        }
     };
 
     //############################################################################//
@@ -194,9 +198,9 @@ namespace maze {
         WEST  = 3
     };
 
-    static inline constexpr char          s_CardinalCount = 4;
-    static inline const Distribution      s_CardinalDist  = Distribution{ 0, 3 };
-    static inline std::array<Cardinal, 4> s_AllCardinals{
+    static inline constexpr char                    s_CardinalCount = 4;
+    static inline const Distribution                s_CardinalDist  = Distribution{ 0, 3 };
+    static inline constexpr std::array<Cardinal, 4> s_AllCardinals{
             Cardinal::NORTH, Cardinal::EAST, Cardinal::SOUTH, Cardinal::WEST
     };
 
@@ -253,6 +257,20 @@ namespace maze {
             default:
                 throw std::exception();
         }
+    }
+
+    static constexpr bool is_wall(const Cardinal dir, const Cell cell) {
+        switch (dir) {
+            case Cardinal::NORTH:
+                return !is_set<Flag::PATH_NORTH>(cell);
+            case Cardinal::EAST:
+                return !is_set<Flag::PATH_EAST>(cell);
+            case Cardinal::SOUTH:
+                return !is_set<Flag::PATH_SOUTH>(cell);
+            case Cardinal::WEST:
+                return !is_set<Flag::PATH_WEST>(cell);
+        }
+        throw std::exception();
     }
 
     //############################################################################//
@@ -405,7 +423,7 @@ namespace maze {
             switch (m_Dir) {
                 case Cardinal::EAST: {
                     if (is_set<Flag::PATH_EAST>(m_Cell)) return path_scale;
-                    return glm::vec3{ 0.6, 0.5, 0.1 };
+                    return glm::vec3{ 0.5, 0.5, 0.1 };
                 }
                 case Cardinal::WEST: {
                     if (is_set<Flag::PATH_WEST>(m_Cell)) return path_scale;
@@ -528,6 +546,20 @@ namespace maze {
 
         auto end() {
             return m_Cells.end();
+        }
+
+        void set_flags_adjacent(const Index2D pos, std::initializer_list<Flag> flags) {
+            set_flags(pos, flags);
+            for (const Cardinal dir : s_AllCardinals) {
+                if (inbounds(pos, dir)) set_flags(pos + cardinal_offset(dir), flags);
+            }
+        }
+
+        void unset_flags_adjacent(const Index2D pos, std::initializer_list<Flag> flags) {
+            unset_flags(pos, flags);
+            for (const Cardinal dir : s_AllCardinals) {
+                if (inbounds(pos, dir)) unset_flags(pos + cardinal_offset(dir), flags);
+            }
         }
 
         AdjacentCells get_adjacent(const Index2D pos) const {
