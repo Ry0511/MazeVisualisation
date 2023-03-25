@@ -9,6 +9,7 @@
 #define MAZEVISUALISATION_TEXTURE2D_H
 
 #include "Image.h"
+#include "Logging.h"
 
 #include <gl/glew.h>
 #include <initializer_list>
@@ -21,6 +22,11 @@ namespace app {
     // | GLEW TEXTURE 2D ENUMERATIONS |
     //############################################################################//
 
+    enum class TextureType {
+        TEXTURE_2D   = GL_TEXTURE_2D,
+        TEXTURE_CUBE = GL_TEXTURE_CUBE_MAP
+    };
+
     // See: https://registry.khronos.org/OpenGL-Refpages/gl4/html/glTexParameter.xhtml
     // for potential values
     enum class TextureFlag : GLenum {
@@ -31,6 +37,7 @@ namespace app {
         MIN_LOD      = GL_TEXTURE_MIN_LOD,
         MAX_LOD      = GL_TEXTURE_MAX_LOD,
         WRAP_S       = GL_TEXTURE_WRAP_S,
+        WRAP_R       = GL_TEXTURE_WRAP_R,
         WRAP_T       = GL_TEXTURE_WRAP_T,
         MIN_FILTER   = GL_TEXTURE_MIN_FILTER,
         MAG_FILTER   = GL_TEXTURE_MAG_FILTER
@@ -50,7 +57,7 @@ namespace app {
         TEN   = GL_TEXTURE10
     };
 
-    inline static constexpr GLenum s_TextureOffset = (GLenum) TextureUnit::ZERO;
+    inline static constexpr GLenum s_TextureOffset    = (GLenum) TextureUnit::ZERO;
     inline static constexpr size_t s_TextureUnitCount = 10;
 
     static_assert((GLenum) TextureUnit::ZERO - s_TextureOffset == 0, "");
@@ -80,10 +87,11 @@ namespace app {
 
     private:
         unsigned int m_Texture;
-        TextureUnit m_Unit;
+        TextureUnit  m_Unit;
+        TextureType  m_Type;
 
     public:
-        Texture2D(TextureUnit unit = TextureUnit::ZERO);
+        Texture2D(TextureUnit unit = TextureUnit::ZERO, TextureType type = TextureType::TEXTURE_2D);
         Texture2D(const Texture2D&) = delete;
         Texture2D(Texture2D&&);
 
@@ -106,14 +114,30 @@ namespace app {
         }
 
     public:
+        void init();
         void bind();
         void unbind();
-        bool is_bound();
+        bool is_bound() const;
 
     public:
         void set_texture_image(const Image& image);
+        void set_texture_images(
+                const Image& px, const Image& nx,
+                const Image& py, const Image& ny,
+                const Image& pz, const Image& nz
+        );
         void set_texture_flags(std::initializer_list<std::pair<TextureFlag, GLint>> flags);
         void enable_preset();
+        void enable_cubemap_preset();
+
+    public:
+        void assert_init() const {
+            ASSERT(m_Texture != 0U, "Texture has not been initialised...");
+        }
+
+        void assert_bound() const {
+            ASSERT(is_bound(), "Texture should be bound...");
+        }
     };
 
 } // app
