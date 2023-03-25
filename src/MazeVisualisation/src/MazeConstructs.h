@@ -127,9 +127,6 @@ namespace maze {
         RED       = 1 << 5,
         GREEN     = 1 << 6,
         BLUE      = 1 << 7,
-        TEX_BRICK = 1 << 8,
-        TEX_STONE = 1 << 9,
-        TEX_DOOR  = 1 << 10,
 
         // Cell State
         VISITED   = 1 << 11,
