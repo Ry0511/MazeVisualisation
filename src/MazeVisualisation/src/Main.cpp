@@ -6,11 +6,13 @@
 #include "MazeManager.h"
 #include "Logging.h"
 #include "Renderer/GLUtil.h"
+#include "Skybox.h"
 
 class App : public app::Application {
 
 private:
     maze::MazeManager m_MazeManager{};
+    maze::Skybox      m_Skybox{ maze::TimeCycle::NIGHT };
 
 public:
     App() : app::Application("My App", 800, 600) {}
@@ -21,17 +23,11 @@ public:
 
     virtual void on_create() override {
         INFO("[ON_CREATE]");
-        set_clear_colour({ 0.1, 0.1, 0.1, 1.0 });
-        GL(glEnable(GL_STENCIL_TEST));
-        GL(glEnable(GL_DEPTH_TEST));
-        GL(glEnable(GL_CULL_FACE));
-        GL(glEnable(GL_MULTISAMPLE));
-        GL(glFrontFace(GL_CCW));
-        GL(glCullFace(GL_BACK));
-        GL(glPolygonMode(GL_FRONT_AND_BACK, GL_FILL));
         GL(glLineWidth(1));
 
         m_MazeManager.init(this);
+        m_Skybox.init();
+        m_Skybox.create_render_group(this);
     }
 
     virtual bool on_update(float delta) override {
