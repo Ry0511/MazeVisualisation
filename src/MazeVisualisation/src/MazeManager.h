@@ -11,6 +11,10 @@
 #include "MazeWall.h"
 #include "BoundingBox.h"
 
+#include "Image.h"
+#include "Renderer/Texture2D.h"
+#include "Renderer/DefaultHandlers.h"
+
 namespace maze {
 
     enum class GameState : char {
@@ -26,7 +30,7 @@ namespace maze {
     class PlayerSolver {
 
     public:
-        inline static constexpr float s_PlayerColliderSize = 0.125F;
+        inline static constexpr float s_PlayerColliderSize = 0.11F;
         inline static constexpr float s_FixedPlayerY       = 0.2F;
         inline static constexpr float s_PlayingWallScale   = 2.5F;
         inline static constexpr float s_WallColliderSize   = 0.5F;
@@ -75,10 +79,10 @@ namespace maze {
             // North, East, South, and West (Potential Colliders)
             constexpr size_t            collider_count = 4;
             app::AxisAlignedBoundingBox all_colliders[collider_count]{
-                    { glm::vec3{ py - s_WallColliderOffset, 0.0, px }, s_PlayerColliderSize },
-                    { glm::vec3{ py, 0.0, px + s_WallColliderOffset }, s_PlayerColliderSize },
-                    { glm::vec3{ py + s_WallColliderOffset, 0.0, px }, s_PlayerColliderSize },
-                    { glm::vec3{ py, 0.0, px - s_WallColliderOffset }, s_PlayerColliderSize }
+                    { glm::vec3{ py - s_WallColliderOffset, 0.0, px }, s_WallColliderSize },
+                    { glm::vec3{ py, 0.0, px + s_WallColliderOffset }, s_WallColliderSize },
+                    { glm::vec3{ py + s_WallColliderOffset, 0.0, px }, s_WallColliderSize },
+                    { glm::vec3{ py, 0.0, px - s_WallColliderOffset }, s_WallColliderSize }
             };
 
             // Collision Detection & Primitive Resolution
@@ -215,6 +219,10 @@ namespace maze {
         GameState            m_GameState;
         float                m_Theta;
 
+        // TODO: TEMPORARY
+        app::Image     m_WallImage{ "Res/Textures/Texture-1.png" };
+        app::Texture2D m_WallTexture{};
+
     public:
         MazeManager()
                 : m_Maze(std::make_shared<Maze2D>(s_MazeSize, s_MazeSize)),
@@ -257,6 +265,49 @@ namespace maze {
                 group.queue_entity(std::move(entity));
             });
 
+            // Maze Floor
+            m_Maze->for_each_cell([&](Index2D pos, Cell cell) {
+                app::Entity entity;
+                auto& t = entity.get_transform();
+                t.pos   = glm::vec3{ (float) pos.row, -1.0F, (float) pos.col };
+                t.scale = glm::vec3{ 0.5F, 0.5F, 0.5F };
+                entity.add_entity_handler<app::ColourSkew>(
+                        glm::vec3{ 0.54F, 0.68F, 0.78F },
+                        glm::vec3{ 0.25F, 0.33F, 0.43F },
+                        glm::vec3{ 1.0F, 1.0F, 1.0F }
+                );
+                group.queue_entity(std::move(entity));
+            });
+
+            group.set_on_bind([](auto& group) {
+                GL(glEnable(GL_STENCIL_TEST));
+                GL(glEnable(GL_DEPTH_TEST));
+                GL(glEnable(GL_CULL_FACE));
+                GL(glEnable(GL_MULTISAMPLE));
+                GL(glFrontFace(GL_CCW));
+                GL(glCullFace(GL_BACK));
+                GL(glPolygonMode(GL_FRONT_AND_BACK, GL_FILL));
+            });
+
+            group.set_on_unbind([](auto& group) {
+                GL(glDisable(GL_STENCIL_TEST));
+                GL(glDisable(GL_CULL_FACE));
+                GL(glDisable(GL_MULTISAMPLE));
+            });
+
+            // TODO: TEMPORARY
+            m_WallTexture.init();
+            m_WallTexture.bind();
+            m_WallTexture.set_texture_flags(
+                    {
+                            std::make_pair(app::TextureFlag::WRAP_S, GL_REPEAT),
+                            std::make_pair(app::TextureFlag::WRAP_T, GL_REPEAT),
+                            std::make_pair(app::TextureFlag::MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR),
+                            std::make_pair(app::TextureFlag::MAG_FILTER, GL_LINEAR),
+                    }
+            );
+
+            m_WallTexture.set_texture_image(m_WallImage);
         }
 
         void update(app::Application* app, float delta) {
