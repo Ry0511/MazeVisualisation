@@ -909,8 +909,10 @@ namespace maze {
             if (m_Stack.empty()) {
                 m_IsComplete = true;
                 std::for_each(maze.begin(), maze.end(), [&](Cell& item) {
-                    item &= ~cellof<Flag::RED>();
-                    item |= cellof<Flag::GREEN>() | cellof<Flag::BLUE>() | cellof<Flag::FINISHED>();
+                    item |= cellof<Flag::RED>()
+                            | cellof<Flag::GREEN>()
+                            | cellof<Flag::BLUE>()
+                            | cellof<Flag::FINISHED>();
                 });
                 HINFO("[BACKTRACK]", " # Recursive backtracker has finished...");
                 return;
