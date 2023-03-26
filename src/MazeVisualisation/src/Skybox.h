@@ -43,6 +43,8 @@ namespace maze {
         void unbind();
         bool is_bound() const;
 
+        void swap_time();
+
     public:
         void set_time(TimeCycle time);
         void create_render_group(app::Application* app);

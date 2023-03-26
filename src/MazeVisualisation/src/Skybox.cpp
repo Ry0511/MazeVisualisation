@@ -95,17 +95,21 @@ namespace maze {
         app::RenderGroup& group = app->get_group(s_SkyboxGroup);
         group.add_group_handler<SkyboxGroupHandle>(app, this);
 
-        group.set_on_bind([](auto&){
+        group.set_on_bind([](auto&) {
             GL(glDepthFunc(GL_LEQUAL));
         });
 
-        group.set_on_unbind([](auto&){
+        group.set_on_unbind([](auto&) {
             GL(glDepthFunc(GL_LESS));
         });
 
         app::Entity skybox_entity;
         skybox_entity.set_dirty();
         group.queue_entity(std::move(skybox_entity));
+    }
+
+    void Skybox::swap_time() {
+        set_time(m_CurrentTime == DAY ? NIGHT : DAY);
     }
 
     //############################################################################//
