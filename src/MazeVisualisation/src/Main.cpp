@@ -12,7 +12,7 @@ class App : public app::Application {
 
 private:
     maze::MazeManager m_MazeManager{};
-    maze::Skybox      m_Skybox{ maze::TimeCycle::NIGHT };
+    maze::Skybox      m_Skybox{ maze::TimeCycle::DAY };
 
 public:
     App() : app::Application("My App", 800, 600) {}
@@ -53,6 +53,10 @@ public:
                         cam.cam_pos.z / 2.5F
                 ).c_str()
         );
+
+        if (is_key_down(app::Key::T)) {
+            m_Skybox.swap_time();
+        }
 
         // Pre-Update
         Renderer::clear();
