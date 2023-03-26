@@ -6,6 +6,7 @@
 #define MAZEVISUALISATION_MAZEMANAGER_H
 
 #include "PlayerManager.h"
+#include "MazeGeneratorManager.h"
 
 #include "CommonModelFileReaders.h"
 #include "MazeConstructs.h"
@@ -23,69 +24,6 @@ namespace maze {
         MAZE_GENERATION,
         ALGORITHM_SOLVING,
         PLAYER_SOLVING
-    };
-
-    //############################################################################//
-    // | MAZE GENERATOR UPDATER |
-    //############################################################################//
-
-    class MazeGeneratorUpdater {
-
-    public:
-        inline static constexpr size_t s_MinSteps           = 1;
-        inline static constexpr size_t s_MaxSteps           = 1 << 14;
-        inline static constexpr float  s_MinUpdateTimeframe = 1.0F / 30.0F;
-
-    private:
-        MazeGenerator m_Generator;
-        size_t        m_StepsPerUpdate;
-        bool          m_IsPaused;
-        float         m_Theta = 0.0;
-
-    public:
-        MazeGeneratorUpdater(
-                std::shared_ptr<Maze2D> maze,
-                size_t initial_steps = s_MinSteps,
-                bool is_paused = true
-        ) : m_Generator(std::make_unique<RecursiveBacktrackImpl>()),
-            m_StepsPerUpdate(initial_steps),
-            m_IsPaused(is_paused),
-            m_Theta() {
-            m_Generator->init(*maze);
-        }
-
-    public:
-
-        void update(app::Application* app, Maze2D& maze, float delta) {
-            m_Theta += delta;
-
-            app->get_camera_state().cam_pos.y = 15;
-
-            if (app->is_key_down(app::Key::SPACE)) m_IsPaused = !m_IsPaused;
-
-            if (app->is_key_down(app::Key::Q)) {
-                m_StepsPerUpdate >>= 1;
-                m_StepsPerUpdate = std::clamp(m_StepsPerUpdate, s_MinSteps, s_MaxSteps);
-            }
-
-            if (app->is_key_down(app::Key::E)) {
-                m_StepsPerUpdate <<= 1;
-                m_StepsPerUpdate = std::clamp(m_StepsPerUpdate, s_MinSteps, s_MaxSteps);
-            }
-
-            if (app->is_key_down(app::Key::R)) {
-                maze.reset();
-                m_Generator = std::make_unique<RecursiveBacktrackImpl>();
-                m_Generator->init(maze);
-            }
-
-            if (m_Theta > s_MinUpdateTimeframe
-                && !m_Generator->is_complete()
-                && !m_IsPaused) {
-                m_Generator->step(maze, m_StepsPerUpdate);
-                m_Theta = 0.0F;
-            }
-        }
     };
 
     //############################################################################//
@@ -143,7 +81,7 @@ namespace maze {
 
     private:
         MazePtr              m_Maze;
-        MazeGeneratorUpdater m_Generator;
+        MazeGeneratorManager m_GeneratorManager;
         PlayerManager        m_PlayerManager;
         GameState            m_GameState;
         float                m_Theta;
@@ -155,7 +93,7 @@ namespace maze {
     public:
         MazeManager()
                 : m_Maze(std::make_shared<Maze2D>(s_MazeSize, s_MazeSize)),
-                  m_Generator(m_Maze),
+                  m_GeneratorManager(),
                   m_PlayerManager(),
                   m_GameState(GameState::MAZE_GENERATION),
                   m_Theta() {
@@ -264,7 +202,7 @@ namespace maze {
             // Update Game State
             switch (m_GameState) {
                 case GameState::MAZE_GENERATION: {
-                    m_Generator.update(app, *m_Maze, delta);
+                    m_GeneratorManager.update(app, *m_Maze, delta);
                     break;
                 }
 

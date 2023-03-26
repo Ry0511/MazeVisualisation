@@ -795,14 +795,27 @@ namespace maze {
 
     protected:
         bool m_IsComplete = false;
+        bool m_IsInit     = false;
 
     public:
         AbstractMazeGenerator() = default;
         virtual ~AbstractMazeGenerator() = default;
 
     public:
+        bool is_initialised() const {
+            return m_IsInit;
+        }
+
         bool is_complete() const {
             return m_IsComplete;
+        }
+
+        void init_once(Maze2D& maze) {
+            if (!m_IsInit) {
+                init(maze);
+                m_IsInit = true;
+                HINFO("[GENERATOR]", " # Initialised Maze Generator...");
+            }
         }
 
         void step(Maze2D& maze, unsigned int count) {
