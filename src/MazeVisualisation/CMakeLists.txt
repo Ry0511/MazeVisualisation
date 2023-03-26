@@ -10,11 +10,13 @@ set(
         src/MazeConstructs.h
         src/MazeWall.h
         src/Skybox.h
+        src/PlayerManager.h
 )
 set(
         MazeVisualisation_SOURCE_FILES
         src/Main.cpp
         src/Skybox.cpp
+        src/PlayerManager.cpp
 )
 
 # Project Executable/Library
