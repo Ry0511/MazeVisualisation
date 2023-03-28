@@ -17,6 +17,7 @@
 #include "Image.h"
 #include "Renderer/Texture2D.h"
 #include "Renderer/DefaultHandlers.h"
+#include "MazeTextureManager.h"
 
 namespace maze {
 
@@ -83,12 +84,9 @@ namespace maze {
         MazePtr              m_Maze;
         MazeGeneratorManager m_GeneratorManager;
         PlayerManager        m_PlayerManager;
+        MazeTextureManager   m_TextureManager;
         GameState            m_GameState;
         float                m_Theta;
-
-        // TODO: TEMPORARY
-        app::Image     m_WallImage{ "Res/Textures/Texture-1.png" };
-        app::Texture2D m_WallTexture{};
 
     public:
         MazeManager()
@@ -162,23 +160,13 @@ namespace maze {
                 GL(glDisable(GL_MULTISAMPLE));
             });
 
-            // TODO: TEMPORARY
-            m_WallTexture.init();
-            m_WallTexture.bind();
-            m_WallTexture.set_texture_flags(
-                    {
-                            std::make_pair(app::TextureFlag::WRAP_S, GL_REPEAT),
-                            std::make_pair(app::TextureFlag::WRAP_T, GL_REPEAT),
-                            std::make_pair(app::TextureFlag::MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR),
-                            std::make_pair(app::TextureFlag::MAG_FILTER, GL_LINEAR),
-                    }
-            );
-
-            m_WallTexture.set_texture_image(m_WallImage);
+            m_TextureManager.init();
         }
 
         void update(app::Application* app, float delta) {
             m_Theta += delta;
+
+            m_TextureManager.update(app, delta);
 
             // Switching Game State
             if (app->is_key_down(app::Key::NUM_1)) {
