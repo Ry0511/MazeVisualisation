@@ -12,6 +12,7 @@ set(
         src/Skybox.h
         src/PlayerManager.h
         src/MazeGeneratorManager.h
+        src/MazeTextureManager.h
 )
 
 set(
@@ -20,6 +21,7 @@ set(
         src/Skybox.cpp
         src/PlayerManager.cpp
         src/MazeGeneratorManager.cpp
+        src/MazeTextureManager.cpp
 )
 
 # Project Executable/Library
