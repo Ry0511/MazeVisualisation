@@ -5,11 +5,19 @@
 #ifndef MAZEVISUALISATION_MAZEMANAGER_H
 #define MAZEVISUALISATION_MAZEMANAGER_H
 
+#include "PlayerManager.h"
+#include "MazeGeneratorManager.h"
+
 #include "CommonModelFileReaders.h"
 #include "MazeConstructs.h"
 #include "Renderer/Shader.h"
 #include "MazeWall.h"
 #include "BoundingBox.h"
+
+#include "Image.h"
+#include "Renderer/Texture2D.h"
+#include "Renderer/DefaultHandlers.h"
+#include "MazeTextureManager.h"
 
 namespace maze {
 
@@ -17,140 +25,6 @@ namespace maze {
         MAZE_GENERATION,
         ALGORITHM_SOLVING,
         PLAYER_SOLVING
-    };
-
-    //############################################################################//
-    // | PLAYER SOLVER STATE |
-    //############################################################################//
-
-    class PlayerSolver {
-
-    public:
-        inline static constexpr float s_PlayerColliderSize = 0.125F;
-        inline static constexpr float s_FixedPlayerY       = 0.2F;
-
-    private:
-        app::AxisAlignedBoundingBox m_BoundingBox;
-
-
-    public:
-        PlayerSolver(
-
-        ) : m_BoundingBox(glm::vec3{ 0, 0, 0 }, s_PlayerColliderSize) {
-
-        }
-
-    public:
-        void update(app::Application* app, Maze2D& maze, float delta) {
-
-            // Variables
-            auto& cam_state = app->get_camera_state();
-            cam_state.cam_pos.y = s_FixedPlayerY;
-            float collider_size   = 0.5F;
-            float collider_offset = 0.9F;
-
-            // Convert Cam Position to Grid Position (Accounting for Grid Scale)
-            float cx     = (cam_state.cam_pos.x / 2.5F);
-            float cz     = (cam_state.cam_pos.z / 2.5F);
-            float offset = 0.5F;
-            m_BoundingBox.realign(
-                    glm::vec3{
-                            cx,
-                            cam_state.cam_pos.y,
-                            cz
-                    },
-                    0.15F
-            );
-            Index2D player_pos = Index2D{ (Index) (cx + offset), (Index) (cz + offset) };
-
-            float px = player_pos.col;
-            float py = player_pos.row;
-
-            // North, East, South, and West (Potential Colliders)
-            constexpr size_t            collider_count = 4;
-            app::AxisAlignedBoundingBox all_colliders[collider_count]{
-                    { glm::vec3{ py - collider_offset, 0.0, px }, collider_size },
-                    { glm::vec3{ py, 0.0, px + collider_offset }, collider_size },
-                    { glm::vec3{ py + collider_offset, 0.0, px }, collider_size },
-                    { glm::vec3{ py, 0.0, px - collider_offset }, collider_size }
-            };
-
-            // If the player is out of bounds don't check for collisions
-            if (!maze.inbounds(player_pos)) return;
-            Cell cell = maze.get_cell(player_pos);
-
-            // Collision Detection & Primitive Resolution
-            for (size_t i = 0; i < collider_count; ++i) {
-                app::AxisAlignedBoundingBox& collider = all_colliders[i];
-                Cardinal wall_dir = get_cardinal(i);
-                if (is_wall(wall_dir, cell) && m_BoundingBox.intersects(collider)) {
-                    cam_state.cam_pos = cam_state.cam_delta_pos;
-                }
-            }
-        }
-    };
-
-    //############################################################################//
-    // | MAZE GENERATOR UPDATER |
-    //############################################################################//
-
-    class MazeGeneratorUpdater {
-
-    public:
-        inline static constexpr size_t s_MinSteps = 1;
-        inline static constexpr size_t s_MaxSteps = 1 << 14;
-        inline static constexpr float s_MinUpdateTimeframe = 1.0F / 30.0F;
-
-    private:
-        MazeGenerator m_Generator;
-        size_t        m_StepsPerUpdate;
-        bool          m_IsPaused;
-        float         m_Theta = 0.0;
-
-    public:
-        MazeGeneratorUpdater(
-                std::shared_ptr<Maze2D> maze,
-                size_t initial_steps = s_MinSteps,
-                bool is_paused = true
-        ) : m_Generator(std::make_unique<RecursiveBacktrackImpl>()),
-            m_StepsPerUpdate(initial_steps),
-            m_IsPaused(is_paused),
-            m_Theta() {
-            m_Generator->init(*maze);
-        }
-
-    public:
-
-        void update(app::Application* app, Maze2D& maze, float delta) {
-            m_Theta += delta;
-
-            app->get_camera_state().cam_pos.y = 15;
-
-            if (app->is_key_down(app::Key::SPACE)) m_IsPaused = !m_IsPaused;
-
-            if (app->is_key_down(app::Key::Q)) {
-                m_StepsPerUpdate >>= 1;
-                m_StepsPerUpdate = std::clamp(m_StepsPerUpdate, s_MinSteps, s_MaxSteps);
-            }
-
-            if (app->is_key_down(app::Key::E)) {
-                m_StepsPerUpdate <<= 1;
-                m_StepsPerUpdate = std::clamp(m_StepsPerUpdate, s_MinSteps, s_MaxSteps);
-            }
-
-            if (app->is_key_down(app::Key::R)) {
-                maze.reset();
-                m_Generator = std::make_unique<RecursiveBacktrackImpl>();
-                m_Generator->init(maze);
-            }
-
-            if (m_Theta > s_MinUpdateTimeframe
-                && !m_Generator->is_complete()
-                && !m_IsPaused) {
-                m_Generator->step(maze, m_StepsPerUpdate);
-                m_Theta = 0.0F;
-            }
-        }
     };
 
     //############################################################################//
@@ -208,16 +82,17 @@ namespace maze {
 
     private:
         MazePtr              m_Maze;
-        MazeGeneratorUpdater m_Generator;
-        PlayerSolver         m_PlayerSolver;
+        MazeGeneratorManager m_GeneratorManager;
+        PlayerManager        m_PlayerManager;
+        MazeTextureManager   m_TextureManager;
         GameState            m_GameState;
         float                m_Theta;
 
     public:
         MazeManager()
                 : m_Maze(std::make_shared<Maze2D>(s_MazeSize, s_MazeSize)),
-                  m_Generator(m_Maze),
-                  m_PlayerSolver(),
+                  m_GeneratorManager(),
+                  m_PlayerManager(),
                   m_GameState(GameState::MAZE_GENERATION),
                   m_Theta() {
         }
@@ -233,7 +108,7 @@ namespace maze {
                     model
             );
 
-            // Create Render Group
+            // Create Wall Render Group
             app->create_render_group(
                     s_MazeWallGroup,
                     std::move(model),
@@ -255,10 +130,45 @@ namespace maze {
                 group.queue_entity(std::move(entity));
             });
 
+            // Maze Floor
+            m_Maze->for_each_cell([&](Index2D pos, Cell cell) {
+                app::Entity entity;
+                auto& t = entity.get_transform();
+                t.pos   = glm::vec3{ (float) pos.row, -1.0F, (float) pos.col };
+                t.scale = glm::vec3{ 0.5F, 0.5F, 0.5F };
+                entity.add_entity_handler<app::ColourSkew>(
+                        glm::vec3{ 0.54F, 0.68F, 0.78F },
+                        glm::vec3{ 0.25F, 0.33F, 0.43F },
+                        glm::vec3{ 1.0F, 1.0F, 1.0F }
+                );
+                group.queue_entity(std::move(entity));
+            });
+
+            // Renderering Flags
+            group.set_on_bind([](auto& group) {
+                GL(glEnable(GL_STENCIL_TEST));
+                GL(glEnable(GL_DEPTH_TEST));
+                GL(glEnable(GL_CULL_FACE));
+                GL(glEnable(GL_MULTISAMPLE));
+                GL(glFrontFace(GL_CCW));
+                GL(glCullFace(GL_BACK));
+                GL(glPolygonMode(GL_FRONT_AND_BACK, GL_FILL));
+            });
+
+            // Disable these as they're specific to Walls
+            group.set_on_unbind([](auto& group) {
+                GL(glDisable(GL_STENCIL_TEST));
+                GL(glDisable(GL_CULL_FACE));
+                GL(glDisable(GL_MULTISAMPLE));
+            });
+
+            m_TextureManager.init();
         }
 
         void update(app::Application* app, float delta) {
             m_Theta += delta;
+
+            m_TextureManager.update(app, delta);
 
             // Switching Game State
             if (app->is_key_down(app::Key::NUM_1)) {
@@ -282,7 +192,7 @@ namespace maze {
             // Update Game State
             switch (m_GameState) {
                 case GameState::MAZE_GENERATION: {
-                    m_Generator.update(app, *m_Maze, delta);
+                    m_GeneratorManager.update(app, *m_Maze, delta);
                     break;
                 }
 
@@ -291,7 +201,7 @@ namespace maze {
                 }
 
                 case GameState::PLAYER_SOLVING: {
-                    m_PlayerSolver.update(app, *m_Maze, delta);
+                    m_PlayerManager.update(app, *m_Maze, delta);
                     break;
                 }
             }

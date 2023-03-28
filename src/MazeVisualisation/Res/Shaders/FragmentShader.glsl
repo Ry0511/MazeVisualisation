@@ -4,6 +4,7 @@
 in vec3 colour;
 in vec3 normal;// Note that this is not normalised and can be wrong if non-uniform scaling is applied.
 in vec3 frag_pos;
+in vec2 tex_pos;
 
 // Fragment Output
 out vec4 frag_colour;
@@ -15,6 +16,9 @@ uniform vec3  u_LightColour;
 uniform float u_Ambient;
 uniform float u_Specular;
 uniform float u_Shininess;
+
+// Texture Uniform
+uniform sampler2D texture0;
 
 // Calculates Ambient Lighting
 vec3 get_ambient_lighting() {
@@ -41,5 +45,6 @@ void main() {
     vec3 ambient = get_ambient_lighting();
     vec3 diffuse = get_diffuse_lighting();
     vec3 specular = get_specular_lighting();
-    frag_colour = vec4((ambient + diffuse + specular) * colour, 1.0);
+
+    frag_colour = texture(texture0, tex_pos) * vec4((ambient + diffuse + specular) * colour, 1.0);
 }

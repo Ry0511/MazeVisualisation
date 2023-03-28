@@ -4,7 +4,8 @@ set(CMAKE_CXX_STANDARD 20)
 
 # Header Files & Source Files
 set(PROJECT_NAME "AppFramework")
-set(AppFramework_HEADER_FILES
+set(
+        AppFramework_HEADER_FILES
         src/Logging.h
         src/Window.h
         src/Application.h
@@ -17,12 +18,20 @@ set(AppFramework_HEADER_FILES
         src/Renderer/Entity.h
         src/Renderer/RendererHandlers.h
         src/Renderer/DefaultHandlers.h
-        src/BoundingBox.h)
+        src/BoundingBox.h
+        src/stb_image.h
+        src/Image.h
+        src/Image.cpp
+        src/Renderer/Texture2D.h
+        src/Renderer/Texture2D.cpp
+)
 
-set(AppFramework_SOURCE_FILES
+set(
+        AppFramework_SOURCE_FILES
         src/Window.cpp
         src/Application.cpp
-        src/Renderer/Renderer.cpp)
+        src/Renderer/Renderer.cpp
+)
 
 # Project Executable/Library
 add_library(AppFramework SHARED ${AppFramework_HEADER_FILES} ${AppFramework_SOURCE_FILES})

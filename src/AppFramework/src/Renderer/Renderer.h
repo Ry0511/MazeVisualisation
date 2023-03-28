@@ -27,6 +27,7 @@ namespace app {
 
     public:
         using GroupHandlerPtr = std::unique_ptr<GroupHandler>;
+        using Callback = std::function<void(RenderGroup&)>;
 
     public:
         inline static constexpr unsigned int s_VertexLayoutIndex      = 0U;
@@ -41,6 +42,8 @@ namespace app {
         std::vector<Entity>          m_Entities;
         std::stack<Entity>           m_EntitiesToAdd;
         std::vector<GroupHandlerPtr> m_GroupHandlers;
+        std::optional<Callback>      m_OnBind;
+        std::optional<Callback>      m_OnUnBind;
 
     public:
         RenderGroup(
@@ -102,6 +105,27 @@ namespace app {
                                        m_GroupHandlers(std::move(o.m_GroupHandlers)) {
 
         };
+
+    public:
+        void set_on_bind(Callback cb) {
+            m_OnBind = std::make_optional(cb);
+        }
+
+        void set_on_unbind(Callback cb) {
+            m_OnUnBind = std::make_optional(cb);
+        }
+
+        void on_bind() {
+            if (m_OnBind.has_value()) {
+                m_OnBind.value()(*this);
+            }
+        }
+
+        void on_unbind() {
+            if (m_OnUnBind.has_value()) {
+                m_OnUnBind.value()(*this);
+            }
+        }
 
         //############################################################################//
         // | GETTING DATA |
@@ -341,12 +365,14 @@ namespace app {
 
             for (auto& [id, group] : m_RenderGroups) {
                 group.bind();
+                group.on_bind();
                 draw_buffer_instanced(
                         DrawMode::TRIANGLES,
                         0,
                         group.get_vertex_count(),
                         group.get_instance_count()
                 );
+                group.on_unbind();
                 group.unbind();
             }
         }

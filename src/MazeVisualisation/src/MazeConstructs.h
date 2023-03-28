@@ -25,7 +25,13 @@ namespace maze {
     using Cell = uint32_t;
     using Index = int;
     using Distribution = std::uniform_int_distribution<Index>;
+
+    #ifdef DETERMINISTIC
     using Random = std::mt19937;
+    #else
+    using Random = std::random_device;
+    #endif
+
 
     struct Index2D {
         mutable Index row, col;
@@ -124,12 +130,9 @@ namespace maze {
         PATH_WEST  = 1 << 4,
 
         // Cell Visual State (Applies to all walls)
-        RED       = 1 << 5,
-        GREEN     = 1 << 6,
-        BLUE      = 1 << 7,
-        TEX_BRICK = 1 << 8,
-        TEX_STONE = 1 << 9,
-        TEX_DOOR  = 1 << 10,
+        RED   = 1 << 5,
+        GREEN = 1 << 6,
+        BLUE  = 1 << 7,
 
         // Cell State
         VISITED   = 1 << 11,
@@ -787,21 +790,40 @@ namespace maze {
 
     class AbstractMazeGenerator {
 
+    private:
+        inline static Random s_Random{};
+
     protected:
-        bool   m_IsComplete = false;
-        Random m_Random     = {};
+        bool m_IsComplete = false;
+        bool m_IsInit     = false;
 
     public:
         AbstractMazeGenerator() = default;
         virtual ~AbstractMazeGenerator() = default;
 
     public:
+        bool is_initialised() const {
+            return m_IsInit;
+        }
+
         bool is_complete() const {
             return m_IsComplete;
         }
 
+        void init_once(Maze2D& maze) {
+            if (!m_IsInit) {
+                init(maze);
+                m_IsInit = true;
+                HINFO("[GENERATOR]", " # Initialised Maze Generator...");
+            }
+        }
+
         void step(Maze2D& maze, unsigned int count) {
             for (unsigned int i = 0; i < count; ++i) step(maze);
+        }
+
+        Random& get_random() {
+            return s_Random;
         }
 
     public:
@@ -828,14 +850,14 @@ namespace maze {
             if (is_complete()) return;
 
             maze.set_flags(m_CurrentPos, {
-                    flagof(s_CellColourDist(m_Random)),
-                    flagof(s_CellColourDist(m_Random))
+                    flagof(s_CellColourDist(get_random())),
+                    flagof(s_CellColourDist(get_random()))
             });
 
             // Create a random number of paths
-            int      path_range = s_CardinalDist(m_Random);
+            int      path_range = s_CardinalDist(get_random());
             for (int i          = 0; i < path_range; ++i) {
-                const Cardinal dir = get_cardinal(s_CardinalDist(m_Random));
+                const Cardinal dir = get_cardinal(s_CardinalDist(get_random()));
                 if (maze.inbounds(m_CurrentPos, dir)) {
                     maze.make_path(m_CurrentPos, dir);
                 }
@@ -898,8 +920,8 @@ namespace maze {
     public:
         virtual void init(Maze2D& maze) override {
             m_Stack.emplace(
-                    Distribution(0, maze.get_row_count() - 1)(m_Random),
-                    Distribution(0, maze.get_col_count() - 1)(m_Random)
+                    Distribution(0, maze.get_row_count() - 1)(get_random()),
+                    Distribution(0, maze.get_col_count() - 1)(get_random())
             );
         }
 
@@ -909,8 +931,10 @@ namespace maze {
             if (m_Stack.empty()) {
                 m_IsComplete = true;
                 std::for_each(maze.begin(), maze.end(), [&](Cell& item) {
-                    item &= ~cellof<Flag::RED>();
-                    item |= cellof<Flag::GREEN>() | cellof<Flag::BLUE>() | cellof<Flag::FINISHED>();
+                    item |= cellof<Flag::RED>()
+                            | cellof<Flag::GREEN>()
+                            | cellof<Flag::BLUE>()
+                            | cellof<Flag::FINISHED>();
                 });
                 HINFO("[BACKTRACK]", " # Recursive backtracker has finished...");
                 return;
@@ -931,7 +955,7 @@ namespace maze {
 
                 // At-least one neighbouring cell is accessible
             } else {
-                const auto [dir, cell] = adj_cells.get_random_where(m_Random, is_valid);
+                const auto [dir, cell] = adj_cells.get_random_where(get_random(), is_valid);
                 maze.unset_flags(pos, { Flag::EMPTY_PATH, Flag::RED });
                 maze.set_flags(pos, { Flag::VISITED, Flag::GREEN });
                 maze.set_flags(pos + cardinal_offset(dir), { Flag::VISITED, Flag::GREEN });
