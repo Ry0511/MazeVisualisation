@@ -108,7 +108,7 @@ namespace maze {
                     model
             );
 
-            // Create Render Group
+            // Create Wall Render Group
             app->create_render_group(
                     s_MazeWallGroup,
                     std::move(model),
@@ -144,6 +144,7 @@ namespace maze {
                 group.queue_entity(std::move(entity));
             });
 
+            // Renderering Flags
             group.set_on_bind([](auto& group) {
                 GL(glEnable(GL_STENCIL_TEST));
                 GL(glEnable(GL_DEPTH_TEST));
@@ -154,6 +155,7 @@ namespace maze {
                 GL(glPolygonMode(GL_FRONT_AND_BACK, GL_FILL));
             });
 
+            // Disable these as they're specific to Walls
             group.set_on_unbind([](auto& group) {
                 GL(glDisable(GL_STENCIL_TEST));
                 GL(glDisable(GL_CULL_FACE));
