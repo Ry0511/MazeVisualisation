@@ -12,9 +12,9 @@ namespace maze {
     MazeGeneratorManager::MazeGeneratorManager(
 
     ) : m_StepsPerUpdate(s_MinSteps),
-        m_IsPaused(false),
+        m_IsPaused(true),
         m_Theta(0),
-        m_Generator(std::make_unique<RecursiveBacktrackImpl>()) {
+        m_Generator(std::make_unique<StandardHuntAndKill>()) {
 
     }
 
