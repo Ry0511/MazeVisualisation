@@ -1399,6 +1399,29 @@ namespace maze {
     };
 
 
+    //############################################################################//
+    // | ALL ALGORITHMS IN A CONTAINER |
+    //############################################################################//
+
+    using MazeAlgorithmPtrType = std::unique_ptr<AbstractMazeGenerator>;
+
+    template<class T>
+    inline static constexpr auto make_generator() {
+        static_assert(std::is_base_of<AbstractMazeGenerator, T>(), "T must derive Abstract Maze Generator...");
+        return std::make_unique<T>();
+    }
+
+    inline static std::array<std::function<MazeAlgorithmPtrType()>, 4> s_MazeGeneratorFactories {
+            make_generator<RecursiveBacktrackImpl>,
+            make_generator<StandardHuntAndKill>,
+            make_generator<RandomHuntAndKillImpl>,
+            make_generator<KruskalImpl>
+    };
+
+    inline static MazeAlgorithmPtrType get_maze_generator(size_t index) {
+        ASSERT(index < s_MazeGeneratorFactories.size(), "Index provided is out of bounds...");
+        return s_MazeGeneratorFactories[index]();
+    }
 }
 
 #endif //MAZEVISUALISATION_MAZECONSTRUCTS_H
