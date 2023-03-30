@@ -115,6 +115,10 @@ namespace maze {
             return glm::vec3{ row, 0, col };
         }
 
+        std::pair<Index, Index> to_pair() const {
+            return std::make_pair(row, col);
+        }
+
         struct Hasher {
             size_t operator ()(const Index2D& i) const noexcept {
                 std::hash<Index> hasher{};
@@ -694,6 +698,14 @@ namespace maze {
             for (const Flag flag : flags) cell |= cellof(flag);
         }
 
+        template<Flag... Flags>
+        void set_flags_all() {
+            constexpr Cell merged = (... | cellof<Flags>());
+            std::for_each(m_Cells.begin(), m_Cells.end(), [=](Cell& cell) {
+                cell |= merged;
+            });
+        }
+
         void unset_flags(const Index2D pos, std::initializer_list<Flag> flags) {
             Cell& cell = get_cell(pos);
             for (const Flag flag : flags) cell &= ~cellof(flag);
@@ -908,6 +920,7 @@ namespace maze {
     public:
         virtual void init(Maze2D& maze) = 0;
         virtual void step(Maze2D& maze) = 0;
+        virtual std::string get_display_name() = 0;
     };
 
     using MazeGenerator = std::unique_ptr<AbstractMazeGenerator>;
@@ -946,7 +959,12 @@ namespace maze {
                 m_CurrentPos = m_CurrentPos.next(maze.get_row_count(), maze.get_col_count());
             } else {
                 m_IsComplete = true;
+                maze.set_flags_all<Flag::RED, Flag::GREEN, Flag::BLUE, Flag::FINISHED>();
             }
+        }
+
+        virtual std::string get_display_name() override {
+            return "Truly Random Walls";
         }
     };
 
@@ -983,7 +1001,12 @@ namespace maze {
                 m_Pos  = m_Pos.next(maze.get_row_count(), maze.get_col_count());
             } else {
                 m_IsComplete = true;
+                maze.set_flags_all<Flag::RED, Flag::GREEN, Flag::BLUE, Flag::FINISHED>();
             }
+        }
+
+        virtual std::string get_display_name() override {
+            return "Single Direction Path";
         }
     };
 
@@ -1009,12 +1032,7 @@ namespace maze {
 
             if (m_Stack.empty()) {
                 m_IsComplete = true;
-                std::for_each(maze.begin(), maze.end(), [&](Cell& item) {
-                    item |= cellof<Flag::RED>()
-                            | cellof<Flag::GREEN>()
-                            | cellof<Flag::BLUE>()
-                            | cellof<Flag::FINISHED>();
-                });
+                maze.set_flags_all<Flag::RED, Flag::GREEN, Flag::BLUE, Flag::FINISHED>();
                 HINFO("[BACKTRACK]", " # Recursive backtracker has finished...");
                 return;
             }
@@ -1042,6 +1060,10 @@ namespace maze {
                 m_Stack.emplace(pos + cardinal_offset(dir));
             }
 
+        }
+
+        virtual std::string get_display_name() override {
+            return "Recursive Backtracker";
         }
 
     private:
@@ -1089,12 +1111,7 @@ namespace maze {
             if (m_VisitedCount >= maze.get_size()) {
                 HINFO("[RH&K]", " # Hunt & Kill Finished...");
                 m_IsComplete = true;
-                std::for_each(maze.begin(), maze.end(), [&](Cell& item) {
-                    item |= cellof<Flag::RED>()
-                            | cellof<Flag::GREEN>()
-                            | cellof<Flag::BLUE>()
-                            | cellof<Flag::FINISHED>();
-                });
+                maze.set_flags_all<Flag::RED, Flag::GREEN, Flag::BLUE, Flag::FINISHED>();
                 return;
             }
 
@@ -1198,6 +1215,11 @@ namespace maze {
             maze.set_flags(pos, to_set);
         }
 
+    public:
+        virtual std::string get_display_name() override {
+            return "Hunt & Kill Base";
+        }
+
     };
 
     class RandomHuntAndKillImpl : public HuntAndKillBase {
@@ -1212,6 +1234,11 @@ namespace maze {
         virtual Index2D get_starting_cell() override {
             std::uniform_int_distribution<size_t> index_dist{ 0, m_UnvisitedCells.size() };
             return m_UnvisitedCells.at(index_dist(get_random()));
+        }
+
+    public:
+        virtual std::string get_display_name() override {
+            return "Hunt & Kill - Random Hunt";
         }
     };
 
@@ -1239,6 +1266,11 @@ namespace maze {
             return m_UnvisitedCells.front();
         }
 
+    public:
+        virtual std::string get_display_name() override {
+            return "Hunt & Kill - Standard Hunt";
+        }
+
     };
 
     //############################################################################//
@@ -1247,17 +1279,123 @@ namespace maze {
 
     class KruskalImpl : public AbstractMazeGenerator {
 
-    private:
+    public:
+        using Path = std::tuple<Index, Index>;
+        using PathSet = std::set<Path>;
+        using PathSetList = std::deque<PathSet>;
 
+    private:
+        std::deque<Index2D>                   m_Positions;
+        PathSetList                           m_Paths;
+        std::array<Cardinal, s_CardinalCount> m_AllCardinals{ Cardinal::NORTH, Cardinal::EAST,
+                                                              Cardinal::SOUTH, Cardinal::WEST };
 
     public:
         virtual void init(Maze2D& maze) override {
-
+            // Get & Randomise all cells
+            maze.for_each_cell([&](const Index2D& index, auto) {
+                m_Positions.push_front(index);
+            });
+            std::shuffle(m_Positions.begin(), m_Positions.end(), get_random());
         }
 
         virtual void step(Maze2D& maze) override {
 
+            if (is_complete()) return;
+
+            if (m_Paths.size() == 1 && m_Paths.front().size() == maze.get_size()) {
+                HINFO("[KRUSKAL]", " # Maze Generation Finished...");
+                maze.set_flags_all<Flag::RED, Flag::GREEN, Flag::BLUE, Flag::FINISHED>();
+                m_IsComplete = true;
+                return;
+            }
+
+            // Get a Cell
+            Index2D cur_pos = m_Positions.front();
+            m_Positions.pop_front();
+            m_Positions.push_back(cur_pos);
+
+            // For the first Valid direction
+            std::shuffle(m_AllCardinals.begin(), m_AllCardinals.end(), get_random());
+            auto valid_dir = std::find_if(
+                    m_AllCardinals.begin(), m_AllCardinals.end(),
+                    [&](Cardinal dir) {
+                        return maze.inbounds(cur_pos, dir) && is_disjoint(cur_pos, dir);
+                    }
+            );
+
+            // No Valid Direction
+            if (valid_dir == m_AllCardinals.end()) {
+                return;
+            }
+
+            // If we have a valid direction connect or create the set
+            Index2D               to_pos = cur_pos + cardinal_offset(*valid_dir);
+            PathSetList::iterator lhs    = find_set_containing(cur_pos);
+            PathSetList::iterator rhs    = find_set_containing(to_pos);
+            PathSetList::iterator end    = m_Paths.end();
+
+            // Create a Set; No Set is Valid
+            if (lhs == end && rhs == end) {
+                m_Paths.push_front(PathSet{ cur_pos.to_pair(), to_pos.to_pair() });
+                maze.set_flags(cur_pos, { Flag::GREEN });
+                maze.set_flags(to_pos, { Flag::GREEN });
+
+                // Both Sets are Valid
+            } else if (lhs != end && rhs != end) {
+
+                // Combine & Delete
+                for (const auto [row, col] : *rhs) {
+                    lhs->emplace(std::make_tuple(row, col));
+                    maze.set_flags(Index2D{ row, col }, { Flag::RED });
+                }
+                m_Paths.erase(rhs);
+
+                // One Set is Valid
+            } else {
+
+                auto append_to_set = [&](PathSet& set, const Path& path) {
+                    set.insert(path);
+                    maze.set_flags({ std::get<0>(path), std::get<1>(path) }, { Flag::BLUE });
+                };
+
+                if (lhs != end) {
+                    append_to_set(*lhs, to_pos.to_pair());
+                } else {
+                    append_to_set(*rhs, cur_pos.to_pair());
+                }
+            }
+
+            maze.make_path(cur_pos, *valid_dir);
         }
+
+    private:
+        PathSetList::iterator find_set_containing(Index2D index) {
+            Path                       path = index.to_pair();
+            for (PathSetList::iterator it   = m_Paths.begin(); it != m_Paths.end(); ++it) {
+                if (it->contains(path)) {
+                    return it;
+                }
+            }
+            return m_Paths.end();
+        }
+
+        bool is_disjoint(const Index2D& pos, Cardinal dir) {
+            PathSetList::iterator lhs = find_set_containing(pos);
+            PathSetList::iterator rhs = find_set_containing(pos + cardinal_offset(dir));
+            PathSetList::iterator end = m_Paths.end();
+
+            if (lhs != rhs) return true;
+            if (lhs == end && rhs == end) return true;
+            if (lhs == end || rhs == end) return true;
+            return false;
+        }
+
+    public:
+        virtual std::string get_display_name() override {
+            return "Kruskal's Algorithm - Random";
+        }
+
     };
 
 
