@@ -16,6 +16,8 @@
 #include <cstdint>
 #include <random>
 #include <stack>
+#include <unordered_set>
+#include <set>
 
 namespace maze {
 
@@ -109,16 +111,16 @@ namespace maze {
             return std::format("( {},{} )", row, col);
         }
 
+        glm::vec3 to_vec() {
+            return glm::vec3{ row, 0, col };
+        }
+
         struct Hasher {
             size_t operator ()(const Index2D& i) const noexcept {
                 std::hash<Index> hasher{};
                 return hasher(i.row) ^ (hasher(i.col) << 1);
             }
         };
-
-        glm::vec3 to_vec() {
-            return glm::vec3{ row, 0, col };
-        }
     };
 
     //############################################################################//
@@ -1238,6 +1240,26 @@ namespace maze {
         }
 
     };
+
+    //############################################################################//
+    // | KRUSKAL'S ALGORITHM |
+    //############################################################################//
+
+    class KruskalImpl : public AbstractMazeGenerator {
+
+    private:
+
+
+    public:
+        virtual void init(Maze2D& maze) override {
+
+        }
+
+        virtual void step(Maze2D& maze) override {
+
+        }
+    };
+
 
 }
 
