@@ -29,6 +29,7 @@ namespace maze {
     using Index = int;
     using Distribution = std::uniform_int_distribution<Index>;
 
+    // Determinisitc / Reproducable Random Numbers
     #ifdef DETERMINISTIC
     using Random = std::mt19937;
     #else
@@ -111,7 +112,7 @@ namespace maze {
             return std::format("( {},{} )", row, col);
         }
 
-        glm::vec3 to_vec() {
+        glm::vec3 to_vec() const {
             return glm::vec3{ row, 0, col };
         }
 
@@ -905,7 +906,6 @@ namespace maze {
             if (!m_IsInit) {
                 init(maze);
                 m_IsInit = true;
-                HINFO("[GENERATOR]", " # Initialised Maze Generator...");
             }
         }
 
@@ -1411,7 +1411,7 @@ namespace maze {
         return std::make_unique<T>();
     }
 
-    inline static std::array<std::function<MazeAlgorithmPtrType()>, 4> s_MazeGeneratorFactories {
+    inline static const std::array<std::function<MazeAlgorithmPtrType()>, 4> s_MazeGeneratorFactories {
             make_generator<RecursiveBacktrackImpl>,
             make_generator<StandardHuntAndKill>,
             make_generator<RandomHuntAndKillImpl>,
