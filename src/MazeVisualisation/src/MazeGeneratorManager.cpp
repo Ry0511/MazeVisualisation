@@ -46,6 +46,7 @@ namespace maze {
 
             m_Generator = s_MazeGeneratorFactories[m_CurrentGenerator]();
             maze.reset();
+            m_IsPaused = true;
 
             HINFO("[MGM]", " # Maze Generator: '{}'", m_Generator->get_display_name());
         }
@@ -53,14 +54,15 @@ namespace maze {
         // Restart the Generator
         if (app->is_key_down(app::Key::R)) {
             maze.reset();
+            m_IsPaused = true;
             m_Generator = s_MazeGeneratorFactories[m_CurrentGenerator]();
             m_Generator->init(maze);
         }
 
         // Update Generator
-        if (m_Theta > s_MinUpdateTimeframe
+        if (!m_IsPaused
             && !m_Generator->is_complete()
-            && !m_IsPaused) {
+            && m_Theta > s_MinUpdateTimeframe) {
             m_Generator->step(maze, m_StepsPerUpdate);
             m_Theta = 0.0F;
         }
