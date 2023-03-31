@@ -134,13 +134,10 @@ namespace maze {
             m_Maze->for_each_cell([&](Index2D pos, Cell cell) {
                 app::Entity entity;
                 auto& t = entity.get_transform();
-                t.pos   = glm::vec3{ (float) pos.row, -1.0F, (float) pos.col };
-                t.scale = glm::vec3{ 0.5F, 0.5F, 0.5F };
-                entity.add_entity_handler<app::ColourSkew>(
-                        glm::vec3{ 0.54F, 0.68F, 0.78F },
-                        glm::vec3{ 0.25F, 0.33F, 0.43F },
-                        glm::vec3{ 1.0F, 1.0F, 1.0F }
-                );
+                t.pos                                 = glm::vec3{ (float) pos.row, -1.0F,
+                                                                   (float) pos.col };
+                t.scale                               = glm::vec3{ 0.5F, 0.5F, 0.5F };
+                entity.get_render_attributes().colour = { 0.45F, 0.45F, 0.45F };
                 group.queue_entity(std::move(entity));
             });
 
