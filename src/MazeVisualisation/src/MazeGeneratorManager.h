@@ -17,7 +17,7 @@ namespace maze {
 
     public:
         inline static constexpr size_t s_MinSteps           = 1;
-        inline static constexpr size_t s_MaxSteps           = 1 << 14;
+        inline static constexpr size_t s_MaxSteps           = 1 << 16;
         inline static constexpr float  s_MinUpdateTimeframe = 1.0F / 30.0F;
 
     private:
