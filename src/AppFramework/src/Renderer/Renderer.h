@@ -362,7 +362,6 @@ namespace app {
         );
 
         void render_groups() {
-
             for (auto& [id, group] : m_RenderGroups) {
                 group.bind();
                 group.on_bind();
