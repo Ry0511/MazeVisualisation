@@ -14,8 +14,9 @@ namespace maze {
     ) : m_StepsPerUpdate(s_MinSteps),
         m_IsPaused(true),
         m_Theta(0),
-        m_Generator(std::make_unique<StandardHuntAndKill>()) {
-
+        m_Generator(s_MazeGeneratorFactories[0]()),
+        m_CurrentGenerator(0) {
+        HINFO("[MGM]", " # Maze Generator: '{}'", m_Generator->get_display_name());
     }
 
     void MazeGeneratorManager::update(app::Application* app, Maze2D& maze, float delta) {
@@ -34,10 +35,25 @@ namespace maze {
         if (app->is_key_down(app::Key::E)) m_StepsPerUpdate <<= 1;
         m_StepsPerUpdate = std::clamp(m_StepsPerUpdate, s_MinSteps, s_MaxSteps);
 
+        // Update Current Algorithm
+        if (app->is_key_down(app::Key::PLUS)) {
+            constexpr size_t max = s_MazeGeneratorFactories.size();
+            ++m_CurrentGenerator;
+
+            if (m_CurrentGenerator >= max) {
+                m_CurrentGenerator = 0;
+            }
+
+            m_Generator = s_MazeGeneratorFactories[m_CurrentGenerator]();
+            maze.reset();
+
+            HINFO("[MGM]", " # Maze Generator: '{}'", m_Generator->get_display_name());
+        }
+
         // Restart the Generator
         if (app->is_key_down(app::Key::R)) {
             maze.reset();
-            m_Generator = std::make_unique<RecursiveBacktrackImpl>();
+            m_Generator = s_MazeGeneratorFactories[m_CurrentGenerator]();
             m_Generator->init(maze);
         }
 

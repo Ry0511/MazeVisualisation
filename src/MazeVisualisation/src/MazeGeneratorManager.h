@@ -24,7 +24,8 @@ namespace maze {
         MazeGenerator m_Generator;
         size_t        m_StepsPerUpdate;
         bool          m_IsPaused;
-        float         m_Theta = 0.0;
+        float         m_Theta;
+        size_t        m_CurrentGenerator;
 
     public:
         MazeGeneratorManager();
