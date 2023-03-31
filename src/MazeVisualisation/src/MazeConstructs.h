@@ -1324,7 +1324,7 @@ namespace maze {
                     }
             );
 
-            // No Valid Direction
+            // No Valid Direction just exit
             if (valid_dir == m_AllCardinals.end()) {
                 return;
             }
@@ -1351,7 +1351,7 @@ namespace maze {
                 // One Set is Valid
             } else {
 
-                auto append_to_set = [&](PathSet& set, const Path& path) {
+                const auto append_to_set = [&](PathSet& set, const Path& path) {
                     set.insert(path);
                     maze.set_flags({ std::get<0>(path), std::get<1>(path) }, { Flag::BLUE });
                 };
