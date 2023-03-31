@@ -24,9 +24,6 @@ namespace maze {
 
         m_Theta += delta;
 
-        // Fix Camera Y-Position
-        app->get_camera_state().cam_pos.y = 15;
-
         // Pausing
         if (app->is_key_down(app::Key::SPACE)) m_IsPaused = !m_IsPaused;
 
