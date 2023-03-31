@@ -1345,10 +1345,7 @@ namespace maze {
             } else if (lhs != end && rhs != end) {
 
                 // Combine & Delete
-                for (const auto [row, col] : *rhs) {
-                    lhs->emplace(std::make_tuple(row, col));
-                    maze.set_flags(Index2D{ row, col }, { Flag::RED });
-                }
+                lhs->merge(*rhs);
                 m_Paths.erase(rhs);
 
                 // One Set is Valid
