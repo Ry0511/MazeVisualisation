@@ -477,7 +477,7 @@ namespace maze {
         }
 
         glm::vec3 get_scale_vec() const {
-            glm::vec3 path_scale{ 0.1, 0.1, 0.1 };
+            glm::vec3 path_scale{ 0.005, 0.005, 0.005 };
             switch (m_Dir) {
                 case Cardinal::EAST: {
                     if (is_set<Flag::PATH_EAST>(m_Cell)) return path_scale;
