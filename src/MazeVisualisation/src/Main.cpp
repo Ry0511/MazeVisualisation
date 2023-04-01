@@ -31,7 +31,6 @@ public:
     }
 
     virtual bool on_update(float delta) override {
-
         const auto& cam = get_camera_state();
         set_title(
                 std::format(
