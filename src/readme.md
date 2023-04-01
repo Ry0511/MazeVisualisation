@@ -1,0 +1,35 @@
+# Project
+
+This is my Third Year dissertation project for Swansea University where I set out to learn C++,
+OpenGL, and various Maze Generation algorithms.
+
+# Structure
+
+The project is broken into two folders/subprojects being AppFramework and MazeVisualisation. The
+AppFramework or Application Framework is the backend OpenGL and GLFW3 abstractions to provide a
+simple yet intuitive set of tools to show things on the screen. The entry point for an application
+is as follows:
+
+```cpp
+#include "Application.h"
+
+class App : public Application {
+    
+public:
+    virtual void on_create() override {
+        // Called once when created
+    }
+    
+    virtual void on_update(float delta) override {
+        // Called every frame of the application
+    }
+};
+```
+
+The MazeVisualisation executable builds upon the above to create the actual application.
+
+# Notes
+
+This was my first large project in C++ and also my first project using OpenGL. I think this project
+turned out quite well despite the code-base in my eyes being a disaster. But I
+think if you can't reflect then have not learned anything.
