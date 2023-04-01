@@ -15,6 +15,7 @@ keybinds.
 |    1    | Enter Maze Generation Mode                   |         Any         |
 |    2    | Enter Algorithm Solving Mode                 |         Any         |
 |    3    | Enter Player Solving Mode                    |         Any         |
+|  SPACE  | Pauses/Unpauses the current algorithm        |   Maze Generation   |
 |    Q    | Slows down up the current algorithm by *2    |   Maze Generation   |
 |    E    | Speeds up the current algorithm by *2        |   Maze Generation   |
 |    R    | Resets the maze to its default state         |   Maze Generation   |
