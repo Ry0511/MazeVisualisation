@@ -20,8 +20,9 @@ public:
         // Called once when created
     }
     
-    virtual void on_update(float delta) override {
+    virtual bool on_update(float delta) override {
         // Called every frame of the application
+        return false; // If true then continue updating else stop
     }
 };
 ```
