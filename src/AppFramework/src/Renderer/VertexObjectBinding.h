@@ -571,18 +571,23 @@ namespace app {
     // | BUFFER & ATTRIBUTE TOGGLES |
     //############################################################################//
 
-    struct Enabler {
-        GLuint* indices;
-        size_t count;
+    struct VaoGroup {
+        std::vector<GLuint> indices;
 
-        Enabler(GLuint* indices, size_t count) : indices(indices), count(count) {}
-
-        GLuint* begin() {
-            return &indices[0];
+        auto begin() {
+            return indices.begin();
         }
 
-        GLuint* end() {
-            return &indices[count - 1];
+        auto end() {
+            return indices.end();
+        }
+
+        auto begin() const {
+            return indices.begin();
+        }
+
+        auto end() const {
+            return indices.end();
         }
     };
 
@@ -665,11 +670,15 @@ namespace app {
             }
         }
 
-        void bind(Enabler& targets) {
+        void bind(VaoGroup& targets) {
+            bind();
             for (GLuint i : targets) {
                 for (auto& [buffer, attrib] : m_State->buffers) {
-                    buffer.bind();
-                    attrib->enable();
+                    if (attrib->index == i) {
+                        buffer.bind();
+                        attrib->enable();
+                        break;
+                    }
                 }
             }
         }
@@ -769,10 +778,9 @@ namespace app {
     class Mutable3DModel {
 
     private:
-        inline static MeshIdentity s_MeshCount = 0UL;
+        inline static MeshIdentity s_MeshCount = 0U;
 
     private:
-        long long     m_Id;
         Vec3Vector    m_Vertices{};
         Vec3Vector    m_Normals{};
         Vec3Vector    m_TextureCoords{};
@@ -780,13 +788,29 @@ namespace app {
 
     public:
 
-        Mutable3DModel() : m_Id(s_MeshCount++) {}
+        Mutable3DModel() {}
         Mutable3DModel(const Mutable3DModel&) = delete;
-        Mutable3DModel(Mutable3DModel&&) = delete;
+
+        Mutable3DModel(
+                Mutable3DModel&& o
+        ) : m_Vertices(std::move(o.m_Vertices)),
+            m_Normals(std::move(o.m_Normals)),
+            m_TextureCoords(std::move(o.m_TextureCoords)),
+            m_Indices(std::move(o.m_Indices)) {
+
+        };
 
         ~Mutable3DModel() {
             --s_MeshCount;
             HINFO("[MODEL_DELETE]", " # Deleting Model: {}", to_string());
+        }
+
+        Mutable3DModel& operator =(Mutable3DModel&& o) {
+            m_Vertices      = std::move(o.m_Vertices);
+            m_Normals       = std::move(o.m_Normals);
+            m_TextureCoords = std::move(o.m_TextureCoords);
+            m_Indices       = std::move(o.m_Indices);
+            return *this;
         }
 
         //############################################################################//
@@ -928,8 +952,7 @@ namespace app {
     public:
         std::string to_string() const {
             return std::format(
-                    "( ID={}, Vertices={}, Normals={}, Tex-Coords={}, Indices={} )",
-                    m_Id,
+                    "( Vertices={}, Normals={}, Tex-Coords={}, Indices={} )",
                     m_Vertices.size(),
                     m_TextureCoords.size(),
                     m_Normals.size(),

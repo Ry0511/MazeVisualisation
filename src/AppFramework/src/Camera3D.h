@@ -41,6 +41,7 @@ namespace app {
         float     cam_speed_scalar  = camera_constants::s_InitialSpeedScalar;
         bool      is_scalar_enabled = false;
         glm::vec3 cam_pos           = camera_constants::s_InitialPosVec;
+        glm::vec3 cam_delta_pos     = camera_constants::s_InitialPosVec;
         glm::vec3 cam_front         = camera_constants::s_InitialFrontVec;
         glm::vec3 cam_up            = camera_constants::s_InitialUpVec;
         glm::vec3 cam_right         = camera_constants::s_InitialRightVec;
@@ -85,6 +86,8 @@ namespace app {
 
         virtual void camera_update(app::Window& app, float delta) {
 
+            m_State.cam_delta_pos = m_State.cam_pos;
+            
             // Movement Speed
             float scalar = 1.0F;
             if (app.is_modifier_set(Modifier::SHIFT)) scalar = m_State.cam_speed_scalar;

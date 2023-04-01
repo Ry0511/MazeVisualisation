@@ -3,75 +3,75 @@
 //
 
 #include "Application.h"
-
-#include "CubeManager.h"
-
-#include "MazeConstructs.h"
+#include "MazeManager.h"
 #include "Logging.h"
 #include "Renderer/GLUtil.h"
-
-using namespace app::components;
+#include "Skybox.h"
 
 class App : public app::Application {
 
 private:
-    float       m_Theta     = 0.0F;
-    maze::Index m_MazeSize  = 32;
-    size_t      m_TickCount = 0;
-
-private:
-    maze::CubeManager m_CubeManager = {};
+    maze::MazeManager m_MazeManager{};
+    maze::Skybox      m_Skybox{ maze::TimeCycle::DAY };
 
 public:
     App() : app::Application("My App", 800, 600) {}
 
     virtual void camera_update(app::Window& window, float delta) override {
         Camera3D::camera_update(window, delta);
-        get_camera_state().cam_pos.y = 20.F;
     }
 
     virtual void on_create() override {
         INFO("[ON_CREATE]");
-        set_clear_colour({ 0.1, 0.1, 0.1, 1.0 });
-        GL(glEnable(GL_STENCIL_TEST));
-        GL(glEnable(GL_DEPTH_TEST));
-        GL(glEnable(GL_CULL_FACE));
-        GL(glFrontFace(GL_CCW));
-        GL(glCullFace(GL_BACK));
-        GL(glPolygonMode(GL_FRONT_AND_BACK, GL_FILL));
-        GL(glLineWidth(4));
+        GL(glLineWidth(1));
 
-        // Initialise Managers
-        m_CubeManager.init(this, m_MazeSize, m_MazeSize);
+        m_MazeManager.init(this);
+        m_Skybox.init();
+        m_Skybox.create_render_group(this);
     }
 
     virtual bool on_update(float delta) override {
-        m_Theta += delta;
-
+        const auto& cam = get_camera_state();
         set_title(
                 std::format(
-                        "Window # {}fps, Delta: {:.6f}, {}",
+                        "Window # {:#<4} fps,"
+                        " Delta: {:#<2.2f} ms,"
+                        " Pos: {:#<2.2f}, {:#<2.2f}, {:#<2.2f}"
+                        " PosNormalised: {:#<2.2f}, {:#<2.2f}, {:#<2.2f}",
                         (int) (1.0 / (delta)),
-                        delta,
-                        Camera3D::to_string()
+                        delta * 1000.F,
+
+                        // Actual Cam Pos
+                        cam.cam_pos.x,
+                        cam.cam_pos.y,
+                        cam.cam_pos.z,
+
+                        // Normalised Grid Position
+                        cam.cam_pos.x / 2.5F,
+                        cam.cam_pos.y,
+                        cam.cam_pos.z / 2.5F
                 ).c_str()
         );
+
+        if (is_key_down(app::Key::T)) {
+            m_Skybox.swap_time();
+        }
+
+        // Pre-Update
+        Renderer::clear();
         const glm::ivec2& size = get_window_size();
         set_viewport(0, 0, size.x, size.y);
-        Renderer::clear();
 
-        // Update Managers
-        m_CubeManager.update(delta, this);
-
-        // Render Managers
-        m_CubeManager.render(this);
+        // Update & Render
+        m_MazeManager.update(this, delta);
+        this->Renderer::update_groups(delta);
+        this->Renderer::render_groups();
 
         return true;
     }
 };
 
 int main() {
-    auto app = new App();
-    app->start();
-    delete app;
+    App app{};
+    app.start();
 }

@@ -35,6 +35,7 @@ namespace app {
 
         glfwWindowHint(GLFW_VERSION_MAJOR, 3);
         glfwWindowHint(GLFW_VERSION_MINOR, 3);
+        glfwWindowHint(GLFW_SAMPLES, 8);
 
         if (s_ActiveWindowCount == 0) {
             glfwSetErrorCallback([](int code, const char* msg) {
@@ -101,7 +102,9 @@ namespace app {
         });
 
         glfwSetKeyCallback(m_Handle, [](auto ref, int key, int scan, int act, int mods) {
-            GET_SELF(ref)->m_WindowState.button_mods = mods;
+            auto* self = GET_SELF(ref);
+            self->m_WindowState.button_mods = mods;
+            self->m_WindowState.key_state_map[key] = { scan, act, mods };
         });
     }
 
@@ -192,6 +195,18 @@ namespace app {
         return state == GLFW_PRESS || state == GLFW_REPEAT;
     }
 
+    bool Window::is_key_down(Key key) {
+        int k = static_cast<int>(key);
+        if (!m_WindowState.key_state_map.contains(k)) return false;
+        auto&[scan, act, mods] = m_WindowState.key_state_map[k];
+        if (act == GLFW_PRESS) {
+            act = GLFW_RELEASE;
+            return true;
+        } else {
+            return false;
+        }
+    }
+
     bool Window::is_mouse_pressed(MouseButton button) {
         int state = glfwGetMouseButton(m_Handle, static_cast<int>(button));
         return state == GLFW_PRESS || state == GLFW_REPEAT;
@@ -214,9 +229,9 @@ namespace app {
     }
 
     void Window::compute_key_state(bool* states, std::initializer_list<Key> keys) {
-        size_t i = 0;
+        size_t    i = 0;
         for (auto key : keys) {
-            states[i]  = is_key_pressed(key);
+            states[i] = is_key_pressed(key);
             ++i;
         }
     }

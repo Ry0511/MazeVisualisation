@@ -1,4 +1,4 @@
- //
+//
 // Created by -Ry on 26/01/2023.
 //
 
@@ -15,6 +15,15 @@
 
 namespace app {
 
+    struct ShaderState {
+        GLuint program_id = 0;
+
+        ~ShaderState() {
+            HINFO("[SHADER_DESTROY]", " # Delete Shader Program '{}'", program_id);
+            GL(glDeleteProgram(program_id));
+        }
+    };
+
     class Shader {
 
     public:
@@ -26,11 +35,20 @@ namespace app {
         inline static const std::string s_RotateMatrixUniform     = "u_RotateMatrix";
         inline static const std::string s_ScaleMatrixUniform      = "u_ScaleMatrix";
 
+        // Lighting/Shading Uniforms
+        inline static const std::string s_LightPosUniform    = "u_LightPos";
+        inline static const std::string s_LightDirUniform    = "u_LightDir";
+        inline static const std::string s_LightColourUniform = "u_LightColour";
+        inline static const std::string s_AmbientUniform     = "u_Ambient";
+        inline static const std::string s_SpecularUniform    = "u_Specular";
+        inline static const std::string s_ShininessUniform   = "u_Shininess";
+
+
     private:
         inline static GLuint s_EnabledShaderProgram = 0;
 
     private:
-        GLuint m_ShaderProgram = 0;
+        std::shared_ptr<ShaderState> m_ShaderProgram = std::make_shared<ShaderState>();
 
     public:
         static std::string read_file_to_string(
@@ -54,13 +72,6 @@ namespace app {
 
     public:
         Shader() = default;
-        Shader(const Shader&) = delete;
-        Shader(Shader&&) = delete;
-
-        ~Shader() {
-            HINFO("[SHDAER_DESTROY]", " # Destroying Shader '{}'", m_ShaderProgram);
-            GL(glDeleteProgram(m_ShaderProgram));
-        }
 
     private:
         __forceinline static GLuint compile_shader(
@@ -93,7 +104,7 @@ namespace app {
                 HERR(
                         "[SHADER_LINK]",
                         " # Shader Program '{}' has already been compiled and linked...",
-                        m_ShaderProgram
+                        (*m_ShaderProgram).program_id
                 );
                 throw std::exception();
             }
@@ -104,22 +115,24 @@ namespace app {
 
             // Compile Shaders
             INFO("Compiling Vertex Shader.");
-            GLint v_shader = compile_shader(read_file_to_string(v_source).c_str(), GL_VERTEX_SHADER);
+            GLint v_shader = compile_shader(read_file_to_string(v_source).c_str(),
+                                            GL_VERTEX_SHADER);
             INFO("Compiling Fragment Shader.");
-            GLint f_shader = compile_shader(read_file_to_string(f_source).c_str(), GL_FRAGMENT_SHADER);
+            GLint f_shader = compile_shader(read_file_to_string(f_source).c_str(),
+                                            GL_FRAGMENT_SHADER);
 
             // Create the Shader Program
-            m_ShaderProgram = GL(glCreateProgram());
-            GL(glAttachShader(m_ShaderProgram, v_shader));
-            GL(glAttachShader(m_ShaderProgram, f_shader));
-            GL(glLinkProgram(m_ShaderProgram));
+            (*m_ShaderProgram).program_id = GL(glCreateProgram());
+            GL(glAttachShader((*m_ShaderProgram).program_id, v_shader));
+            GL(glAttachShader((*m_ShaderProgram).program_id, f_shader));
+            GL(glLinkProgram((*m_ShaderProgram).program_id));
 
             // Link Programme
             GLint link_state = 0;
-            GL(glGetProgramiv(m_ShaderProgram, GL_LINK_STATUS, &link_state));
+            GL(glGetProgramiv((*m_ShaderProgram).program_id, GL_LINK_STATUS, &link_state));
             if (!link_state) {
                 char buffer[512]{};
-                GL(glGetProgramInfoLog(m_ShaderProgram, 512, nullptr, buffer));
+                GL(glGetProgramInfoLog((*m_ShaderProgram).program_id, 512, nullptr, buffer));
                 ERR("Shader Program Linker Error. # {}", buffer);
                 PANIC;
             }
@@ -136,7 +149,8 @@ namespace app {
     public:
 
         bool is_init() const {
-            return m_ShaderProgram != 0;
+            ASSERT(m_ShaderProgram, "Shader Program Should never be null...");
+            return (*m_ShaderProgram).program_id != 0;
         }
 
         void assert_enabled() const {
@@ -144,12 +158,12 @@ namespace app {
         }
 
         bool is_enabled() const {
-            return s_EnabledShaderProgram == m_ShaderProgram;
+            return s_EnabledShaderProgram == (*m_ShaderProgram).program_id;
         };
 
         void enable() {
-            GL(glUseProgram(m_ShaderProgram));
-            s_EnabledShaderProgram = m_ShaderProgram;
+            GL(glUseProgram((*m_ShaderProgram).program_id));
+            s_EnabledShaderProgram = (*m_ShaderProgram).program_id;
         }
 
         void disable() {
@@ -166,7 +180,7 @@ namespace app {
         #define SET_UNIFORM(fn) ASSERT(is_enabled(), "Shader isn't enabled..."); GL(fn)
 
         GLint get_uniform_location(const std::string& name) {
-            GLint location = GL(glGetUniformLocation(m_ShaderProgram, name.c_str()));
+            GLint location = GL(glGetUniformLocation((*m_ShaderProgram).program_id, name.c_str()));
             return location;
         }
 
