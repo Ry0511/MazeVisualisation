@@ -3,7 +3,19 @@
 This is my Third Year dissertation project for Swansea University where I set out to learn C++,
 OpenGL, and various Maze Generation algorithms.
 
-# Structure
+# Building
+
+The project was built using CMake, MSVC, and C++20 features from C++20 such as `std::format`. You
+can build yourself though note that the following libraries must be linked:
+
+1. GLFW3
+2. OpenGL
+3. GLM
+4. GLEW
+
+Alternatively, you can download the pre-built binaries for Windows in Releases.
+
+# Program Structure
 
 The project is broken into two folders/subprojects being AppFramework and MazeVisualisation. The
 AppFramework or Application Framework is the backend OpenGL and GLFW3 abstractions to provide a
